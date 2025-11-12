@@ -8,4 +8,4 @@
 
 Три методи рефакторингу за Фаулером у Go-вебсервісі: Extract Function, Introduce Parameter Object, Replace Conditional with Polymorphism
 
-Програмна система для білетного контролю
+Програмна система для сервісу білетного контролю автобусних перевезень
