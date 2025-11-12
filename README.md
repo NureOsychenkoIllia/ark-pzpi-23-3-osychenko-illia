@@ -4,7 +4,7 @@
 
 Осиченко Ілля Олександрович
 
-Офіційні стилістичні настанови Go для веб-розробки: Effective Go та Go Code Review Comments у практиці створення веб-сервісів
+Офіційні стилістичні настанови Go: Effective Go та Go Code Review Comments у практиці створення веб-сервісів
 
 Три методи рефакторингу за Фаулером у Go-вебсервісі: Extract Function, Introduce Parameter Object, Replace Conditional with Polymorphism
 
