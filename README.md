@@ -6,6 +6,6 @@
 
 Офіційні стилістичні настанови Go: Effective Go та Go Code Review Comments у практиці створення веб-сервісів
 
-Три методи рефакторингу за Фаулером у Go-вебсервісі: Extract Function, Introduce Parameter Object, Replace Conditional with Polymorphism
+Три методи рефакторингу за Фаулером у веб-сервісі Go: Extract Function, Introduce Parameter Object, Replace Conditional with Polymorphism
 
 Програмна система для сервісу білетного контролю автобусних перевезень
