@@ -1,0 +1,631 @@
+                    МІНІСТЕРСТВО ОСВІТИ І НАУКИ УКРАЇНИ
+   ХАРКІВСЬКИЙ НАЦІОНАЛЬНИЙ УНІВЕРСИТЕТ РАДІОЕЛЕКТРОНІКИ
+
+
+
+                           Кафедра Програмної інженерії
+
+
+
+
+                                        Звіт
+                            до практичного завдання №2
+                     з дисципліни: «Аналіз та рефакторинґ коду»
+                    з теми: «Методи рефакторингу за Фаулером»
+
+
+
+
+Виконав:                                                               Перевірив:
+ст. гр. ПЗПІ-23-3                                          ст. викладач катедри ПІ
+Осиченко І. О.                                                      Сокорчук І. П.
+
+
+
+
+                                   Харків – 2025
+                                                                               2
+                               1 ІСТОРІЯ ЗМІН
+
+№    Дата    Версія звіту     Опис змін та виправлень
+1 25.11.2025     0.1          Створено розділ «Завдання»
+2 01.12.2025     0.2          Створено розділ «Опис виконаної роботи»
+3 02.12.2025     1.0          Завершено роботу над звітом
+
+
+
+                                 2 ЗАВДАННЯ
+
+
+     Студент повинен обрати три методи рефакторингу з книги Мартіна Фаулера
+«Refactoring: Improving the Design of Existing Code», продемонструвати їх
+застосування на прикладах коду веб-сервісу, обґрунтувати вибір кожного методу та
+надати детальні пояснення.
+
+     Обрана мова програмування: Go (Golang)
+
+     Ключові завдання:
+     а)   Дослідити каталог методів рефакторингу за Фаулером
+     б)   Обрати три методи для демонстрації
+     в)   Підготувати презентацію з прикладами коду «до» та «після»
+     г)   Продемонструвати застосування методів:
+                –   Extract Function (Виділення функції)
+                –   Introduce Parameter Object (Введення об’єкта параметрів)
+                –   Replace Conditional with Polymorphism (Заміна умовної логіки
+                    поліморфізмом)
+                                                                                3
+                       3 ОПИС ВИКОНАНОЇ РОБОТИ
+
+     3.1 Вступ
+
+     У рамках практичного завдання було обрано три методи рефакторингу з книги
+Мартіна Фаулера [1] та продемонстровано їх застосування на прикладах веб-сервісу
+на мові Go. Рефакторинг — це процес покращення внутрішньої структури коду без
+зміни його зовнішньої поведінки.
+
+     3.2 Що таке рефакторинг?
+
+     Рефакторинг — це дисциплінований підхід до реструктуризації існуючого
+коду, що змінює його внутрішню структуру без зміни зовнішньої поведінки [1].
+Основні цілі рефакторингу:
+      –   Покращення читабельності коду
+      –   Зменшення складності
+      –   Полегшення підтримки та розширення
+      –   Усунення дублювання коду
+     Важливо розуміти, що рефакторинг не змінює функціональність програми —
+він лише покращує її внутрішню якість.
+
+     3.3 Метод 1: Extract Function (Виділення функції)
+
+     3.3.1 Опис методу
+
+     Extract Function — один з найбільш поширених методів рефакторингу. Він
+полягає у виділенні фрагмента коду в окрему функцію з промовистою назвою [1].
+
+     3.3.2 Коли застосовувати
+
+      –   Функція занадто довга (більше 20-30 рядків)
+      –   Є блоки коду з коментарями, що пояснюють їх призначення
+      –   Код дублюється в різних місцях
+      –   Складно зрозуміти, що робить певний фрагмент коду
+                                                                     4
+3.3.3 Приклад: До рефакторингу
+
+func CreateUserHandler(w http.ResponseWriter, r *http.Request) {
+    var req CreateUserRequest
+    json.NewDecoder(r.Body).Decode(&req)
+    // Перевірка email
+    if req.Email == "" || !strings.Contains(req.Email, "@") {
+        http.Error(w, "invalid email", http.StatusBadRequest)
+        return
+    }
+    // Перевірка пароля
+    if len(req.Password) < 8 {
+        http.Error(w, "password too short", http.StatusBadRequest)
+        return
+    }
+    if !strings.ContainsAny(req.Password, "0123456789") {
+        http.Error(w, "password must contain numbers",
+http.StatusBadRequest)
+        return
+    }
+    user := &User{Email: req.Email, Password: req.Password}
+    db.Save(user)
+    json.NewEncoder(w).Encode(user)
+}
+
+
+3.3.4 Приклад: Після рефакторингу
+
+func CreateUserHandler(w http.ResponseWriter, r *http.Request) {
+    var req CreateUserRequest
+    json.NewDecoder(r.Body).Decode(&req)
+    if err := validateUserRequest(&req); err != nil {
+        http.Error(w, err.Error(), http.StatusBadRequest)
+        return
+    }
+    user := createUser(&req)
+    json.NewEncoder(w).Encode(user)
+}
+
+func validateUserRequest(req *CreateUserRequest) error {
+    if err := validateEmail(req.Email); err != nil {
+        return err
+    }
+    return validatePassword(req.Password)
+}
+
+func validateEmail(email string) error {
+    if email == "" || !strings.Contains(email, "@") {
+        return errors.New("invalid email")
+    }
+    return nil
+}
+
+func validatePassword(password string) error {
+    if len(password) < 8 {
+        return errors.New("password too short")
+    }
+    if !strings.ContainsAny(password, "0123456789") {
+        return errors.New("password must contain numbers")
+                                                                           5
+          }
+          return nil
+     }
+
+
+     3.3.5 Переваги
+
+      –   Кожна функція має одну відповідальність
+      –   Код легше читати та розуміти
+      –   Функції валідації можна тестувати окремо
+      –   Зменшується дублювання коду
+
+     3.4 Метод 2: Introduce Parameter Object
+
+     3.4.1 Опис методу
+
+     Introduce Parameter Object — метод, що полягає у групуванні пов’язаних
+параметрів функції в один об’єкт (структуру) [1].
+
+     3.4.2 Коли застосовувати
+
+      –   Функція має більше 3-4 параметрів
+      –   Параметри логічно пов’язані між собою
+      –   Ті самі параметри передаються в багато функцій
+      –   Складно запам’ятати порядок параметрів
+
+     3.4.3 Приклад: До рефакторингу
+
+     func SearchUsers(
+         query string,
+         page int,
+         pageSize int,
+         sortBy string,
+         sortOrder string,
+         includeDeleted bool,
+     ) ([]*User, error) {
+         offset := (page - 1) * pageSize
+         users, err := db.Query(
+             "SELECT * FROM users WHERE name LIKE ? ORDER BY ? ? LIMIT ?
+     OFFSET ?",
+             "%"+query+"%", sortBy, sortOrder, pageSize, offset,
+         )
+         return users, err
+     }
+
+     // Виклик функції
+     users, err := SearchUsers("john", 1, 20, "created_at", "DESC", false)
+                                                                            6
+      3.4.4 Приклад: Після рефакторингу
+
+      type UserSearchParams struct {
+          Query          string
+          Page           int
+          PageSize       int
+          SortBy         string
+          SortOrder      string
+          IncludeDeleted bool
+      }
+
+      func (p *UserSearchParams) Offset() int {
+          return (p.Page - 1) * p.PageSize
+      }
+
+      func SearchUsers(params UserSearchParams) ([]*User, error) {
+          users, err := db.Query(
+              "SELECT * FROM users WHERE name LIKE ? ORDER BY ? ? LIMIT ?
+      OFFSET ?",
+              "%"+params.Query+"%", params.SortBy, params.SortOrder,
+              params.PageSize, params.Offset(),
+          )
+          return users, err
+      }
+
+      // Виклик функції
+      users, err := SearchUsers(UserSearchParams{
+          Query:    "john",
+          Page:     1,
+          PageSize: 20,
+          SortBy:   "created_at",
+          SortOrder: "DESC",
+      })
+
+
+      3.4.5 Переваги
+
+      –   Зрозуміліший виклик функції з іменованими полями
+      –   Легко додавати нові параметри без зміни сигнатури
+      –   Можна додати методи до структури параметрів
+      –   Параметри за замовчуванням через zero values
+
+      3.5 Метод 3: Replace Conditional with Polymorphism
+
+      3.5.1 Опис методу
+
+      Replace Conditional with Polymorphism — метод заміни складних умовних
+конструкцій (switch/if-else) на поліморфізм через інтерфейси [1]. Це один з
+найпотужніших методів рефакторингу, що дозволяє дотримуватися принципу
+відкритості/закритості (Open/Closed Principle) [2].
+                                                                     7
+3.5.2 Коли застосовувати
+
+–   Є великі switch або if-else ланцюжки
+–   Одна й та сама умовна логіка повторюється в різних місцях
+–   Складно додати новий тип без зміни існуючого коду
+–   Порушується принцип відкритості/закритості
+
+3.5.3 Приклад: До рефакторингу
+
+type Notification struct {
+    Type    string // "email", "sms", "push"
+    To      string
+    Subject string
+    Body    string
+}
+
+func SendNotification(n *Notification) error {
+    switch n.Type {
+    case "email":
+        return sendEmail(n.To, n.Subject, n.Body)
+    case "sms":
+        return sendSMS(n.To, n.Body)
+    case "push":
+        return sendPushNotification(n.To, n.Subject, n.Body)
+    default:
+        return fmt.Errorf("unknown notification type: %s", n.Type)
+    }
+}
+
+
+3.5.4 Приклад: Після рефакторингу
+
+// Визначаємо інтерфейс
+type NotificationSender interface {
+    Send() error
+}
+
+// Реалізація для Email
+type EmailNotification struct {
+    To      string
+    Subject string
+    Body    string
+}
+
+func (e *EmailNotification) Send() error {
+    return sendEmail(e.To, e.Subject, e.Body)
+}
+
+// Реалізація для SMS
+type SMSNotification struct {
+    To   string
+    Body string
+}
+                                                                                   8
+      func (s *SMSNotification) Send() error {
+          return sendSMS(s.To, s.Body)
+      }
+
+      // Реалізація для Push
+      type PushNotification struct {
+          To      string
+          Subject string
+          Body    string
+      }
+
+      func (p *PushNotification) Send() error {
+          return sendPushNotification(p.To, p.Subject, p.Body)
+      }
+
+      // Універсальна функція відправлення
+      func SendNotification(sender NotificationSender) error {
+          return sender.Send()
+      }
+
+
+      3.5.5 Переваги
+
+      –    Легко додати новий тип повідомлення без зміни існуючого коду
+      –    Кожен тип інкапсулює свою логіку
+      –    Дотримання принципу відкритості/закритості
+      –    Простіше тестування окремих типів
+
+      3.6 Інструменти для рефакторингу в Go
+
+      Для безпечного рефакторингу коду на Go рекомендується використовувати
+такі інструменти [3], [4]:
+      а)   IDE з підтримкою рефакторингу (GoLand, VSCode з Go extension)
+      б)   Командні інструменти: «gorename» , «gomvpkg»
+      в)   Статичний аналіз: «go vet» , «staticcheck»
+      г)   Тестування: «go test» , «go test -cover»
+      Ключове     правило:    завжди    запускайте    тести   після   кожного   кроку
+рефакторингу!
+                                                                            9
+                                ВИСНОВКИ
+
+
+     У результаті виконання практичного завдання було досліджено каталог
+методів рефакторингу з книги Мартіна Фаулера «Refactoring: Improving the
+Design of Existing Code» та продемонстровано застосування трьох ключових
+методів на прикладах веб-сервісу на мові Go. Метод Extract Function дозволяє
+виділяти фрагменти коду в окремі функції з промовистими назвами, що
+значно покращує читабельність та полегшує тестування окремих компонентів.
+Метод Introduce Parameter Object забезпечує групування пов’язаних параметрів
+функції в структуру, що зменшує кількість параметрів та робить виклики
+функцій зрозумілішими завдяки іменованим полям. Метод Replace Conditional
+with Polymorphism дозволяє замінити складні умовні конструкції на поліморфізм
+через інтерфейси, забезпечуючи дотримання принципу відкритості/закритості та
+спрощуючи додавання нових типів без зміни існуючого коду.
+     Практична   демонстрація   цих   методів   показала,   що   систематичний
+рефакторинг є невід’ємною частиною процесу розробки якісного програмного
+забезпечення. Кожен з розглянутих методів вирішує конкретну проблему:
+довгі функції, надмірну кількість параметрів та складні умовні конструкції.
+Використання сучасних інструментів для рефакторингу, таких як IDE з підтримкою
+автоматичного рефакторингу, командні утиліти та засоби статичного аналізу,
+дозволяє виконувати трансформації коду безпечно та ефективно.
+     Отримані знання та навички дозволяють систематично покращувати якість
+коду, зменшувати технічний борг та створювати більш підтримуваний та
+розширюваний програмний продукт. Важливо підкреслити, що рефакторинг не
+є одноразовою дією, а постійним процесом покращення коду, який повинен
+супроводжуватися обов’язковим тестуванням після кожного кроку трансформації
+для забезпечення збереження функціональності системи.
+                                                                                                                           10
+                                                              ПЕРЕЛІК ДЖЕРЕЛ ПОСИЛАННЯ
+
+                                              1.   Fowler M. Refactoring: Improving the Design of Existing Code (2nd Edition).
+2025.
+ХНУРЕ,
+Харків:
+коду».
+рефакторинґ
+та
+«Аналіз
+дисципліни
+з
+занять
+практичних
+до
+вказівки
+Методичні
+радіоелектроніки,
+університет
+національний
+https://refactoring.guru/[7]Харківський
+у:
+Доступний
+[Online].
+2025.
+Грудень
+01,
+звернення:
+Дата
+ресурс]».
+[Електронний
+рефакторингу
+патернів
+Каталог
+«Refactoring.Guru.
+Shvets,
+2015.[6]Alexander
+Professional,
+Addison-Wesley
+Language.
+Programming
+Go
+The
+A.,
+A.
+A.
+Donovan
+W.
+B.
+https://go.dev/wiki/CodeReviewComments[5]K.
+у:
+Доступний
+[Online].
+2025.
+Грудень
+01,
+звернення:
+Дата
+ресурс]».
+[Електронний
+коду
+перегляду
+з
+Рекомендації
+Comments.
+Review
+Code
+«Go
+Authors,
+Go
+https://go.dev/doc/effective_go[4]The
+у:
+Доступний
+[Online].
+2025.
+Грудень
+01,
+звернення:
+Дата
+ресурс]».
+[Електронний
+коду
+ідіоматичного
+написання
+з
+посібник
+Офіційний
+Go.
+«Effective
+Authors,
+Go
+2008.[3]The
+Hall,
+Prentice
+Craftsmanship.
+Software
+Agile
+of
+Handbook
+A
+Code:
+Clean
+C.,
+R.
+2018.[2]Martin
+Professional,
+Addison-Wesley
+Edition).
+(2nd
+Code
+Existing
+of
+Design
+the
+Improving
+Refactoring:
+M.,
+[1]Fowler
+Addison-Wesley Professional, 2018. 448 c.
+                                              2.   Martin R. C. Clean Code: A Handbook of Agile Software Craftsmanship.
+Prentice Hall, 2008. 464 c.
+                                              3.   Effective Go. Офіційний посібник з написання ідіоматичного коду
+[Електронний ресурс]. The Go Authors. URL: https://go.dev/doc/effective_go (дата
+звернення: 01.12.2025).
+                                              4.   Go Code Review Comments. Рекомендації з перегляду коду [Електронний
+ресурс]. The Go Authors. URL: https://go.dev/wiki/CodeReviewComments (дата
+звернення: 01.12.2025).
+                                              5.   Donovan A. A. A., Kernighan B. W. The Go Programming Language.
+Addison-Wesley Professional, 2015. 400 c.
+                                              6.   Refactoring.Guru. Каталог патернів рефакторингу [Електронний ресурс].
+Alexander Shvets. URL: https://refactoring.guru (дата звернення: 01.12.2025).
+                                              7.   Харківський національний університет радіоелектроніки Методичні
+вказівки до практичних занять з дисципліни «Аналіз та рефакторинґ коду». Харків:
+ХНУРЕ, 2025. 32 c.
+                                                                           11
+                             ДОДАТОК А
+                              Відеозапис
+
+Відеозапис доповіді: https://youtu.be/-1ivf3TaVto
+
+Хронологічний опис відеозапису:
+00:00 - Вступ: Оптимізація архітектури веб-сервісів мовою Go
+00:23 - Концепція рефакторингу: метрики якості та технічний борг
+01:49 - Класифікація методів структурної оптимізації коду
+02:15 - Extract Function: Принципи декомпозиції та ізоляції логіки
+03:18 - Аналіз легасі-коду: порушення Single Responsibility Principle
+04:14 - Результат декомпозиції: модульність та спрощення Unit-тестування
+05:06 - Introduce Parameter Object: патерн агрегації аргументів
+05:57 - Проблематика розширення сигнатур функцій
+06:55 - Інкапсуляція параметрів запиту в об’єкти передачі даних (DTO)
+07:48 - Replace Conditional with Polymorphism: принцип Open/Closed (OCP)
+08:44 - Аналіз недоліків масштабування через імперативні розгалуження
+09:41 - Імплементація поліморфної поведінки через інтерфейсні абстракції
+10:34 - Порівняльний аналіз архітектури «До» та «Після»
+11:33 - Інструментарій: IDE, статичний аналіз та регресійне тестування
+12:37 - Методологія безперервного рефакторингу в процесі розробки
+13:22 - Бібліографія та технічна документація
+                                              12
+            ДОДАТОК Б
+        Слайди презентації
+
+
+
+
+Рисунок Б.1 – Титульна сторінка презентації
+
+
+
+
+Рисунок Б.2 – Рефакторинг: покращуємо код
+                                                     13
+
+
+
+
+   Рисунок Б.3 – Три методи покращення коду
+
+
+
+
+Рисунок Б.4 – Extract Function — виділення функції
+                                                     14
+
+
+
+
+ Рисунок Б.5 – Extract Function: до рефакторингу
+
+
+
+
+Рисунок Б.6 – Extract Function: після рефакторингу
+                                                            15
+
+
+
+
+        Рисунок Б.7 – Introduce Parameter Object
+
+
+
+
+Рисунок Б.8 – Introduce Parameter Object: до рефакторингу
+                                                               16
+
+
+
+
+Рисунок Б.9 – Introduce Parameter Object: після рефакторингу
+
+
+
+
+   Рисунок Б.10 – Replace Conditional with Polymorphism
+                                                                     17
+
+
+
+
+       Рисунок Б.11 – Replace Conditional: до рефакторингу
+
+
+
+
+Рисунок Б.12 – Replace Conditional: після рефакторингу (частина 1)
+                                                                     18
+
+
+
+
+Рисунок Б.13 – Replace Conditional: після рефакторингу (частина 2)
+
+
+
+
+              Рисунок Б.14 – Порівняння: до і після
+                                         19
+
+
+
+
+Рисунок Б.15 – Інструменти та практики
+
+
+
+
+       Рисунок Б.16 – Висновок
+                                     20
+
+
+
+
+Рисунок Б.17 – Використані джерела
+
+
+
+
+  Рисунок Б.18 – Дякую за увагу
+
