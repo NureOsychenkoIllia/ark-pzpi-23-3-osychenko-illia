@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: busoptima_db
+    environment:
+      POSTGRES_DB: busoptima
+      POSTGRES_USER: busoptima_user
+      POSTGRES_PASSWORD: busoptima_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    networks:
+      - busoptima_network
+
+  api:
+    build: .
+    container_name: busoptima_api
+    environment:
+      DATABASE_URL: postgres://busoptima_user:busoptima_pass@postgres:5432/busoptima?sslmode=disable
+      JWT_SECRET: super-secret-jwt-key
+      PORT: 8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    networks:
+      - busoptima_network
+    restart: unless-stopped
+
+  adminer:
+    image: adminer:latest
+    container_name: busoptima_adminer
+    ports:
+      - "8081:8080"
+    depends_on:
+      - postgres
+    networks:
+      - busoptima_network
+
+volumes:
+  postgres_data:
+
+networks:
+  busoptima_network:
+    driver: bridge

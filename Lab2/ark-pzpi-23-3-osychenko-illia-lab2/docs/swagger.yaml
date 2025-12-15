@@ -1,0 +1,1417 @@
+basePath: /api
+definitions:
+  handler.CreateUserRequest:
+    properties:
+      email:
+        type: string
+      full_name:
+        type: string
+      password:
+        minLength: 6
+        type: string
+      role_id:
+        type: integer
+    required:
+    - email
+    - full_name
+    - password
+    - role_id
+    type: object
+  handler.DeviceAuthRequest:
+    properties:
+      serial_number:
+        type: string
+      token:
+        type: string
+    required:
+    - serial_number
+    - token
+    type: object
+  handler.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        minLength: 6
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  handler.RefreshTokenRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  handler.SyncEventsRequest:
+    properties:
+      events:
+        items:
+          properties:
+            event_type:
+              type: string
+            latitude:
+              type: number
+            local_id:
+              type: integer
+            longitude:
+              type: number
+            passenger_count_after:
+              type: integer
+            timestamp:
+              type: string
+          type: object
+        type: array
+      trip_id:
+        type: integer
+    type: object
+  handler.UpdateUserRoleRequest:
+    properties:
+      role_id:
+        type: integer
+    required:
+    - role_id
+    type: object
+  model.Bus:
+    properties:
+      capacity:
+        example: 50
+        type: integer
+      fuel_consumption_per_100km:
+        example: 12.5
+        type: number
+      id:
+        example: 1
+        type: integer
+      is_active:
+        example: true
+        type: boolean
+      model:
+        example: Mercedes Sprinter
+        type: string
+      registration_number:
+        example: AA1234BB
+        type: string
+    type: object
+  model.PassengerEvent:
+    properties:
+      device_local_id:
+        example: 123
+        type: integer
+      event_type:
+        enum:
+        - board
+        - alight
+        example: board
+        type: string
+      id:
+        example: 1
+        type: integer
+      is_synced:
+        example: true
+        type: boolean
+      latitude:
+        example: 49.9935
+        type: number
+      longitude:
+        example: 36.2304
+        type: number
+      passenger_count_after:
+        example: 25
+        type: integer
+      timestamp:
+        example: "2023-12-15T08:15:00Z"
+        type: string
+      trip_id:
+        example: 1
+        type: integer
+    type: object
+  model.Permission:
+    properties:
+      description:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  model.Role:
+    properties:
+      description:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      permissions:
+        items:
+          $ref: '#/definitions/model.Permission'
+        type: array
+    type: object
+  model.Route:
+    properties:
+      base_price:
+        example: 250
+        type: number
+      created_at:
+        example: "2023-01-01T00:00:00Z"
+        type: string
+      destination_city:
+        example: Київ
+        type: string
+      distance_km:
+        example: 480.5
+        type: number
+      driver_cost_per_trip:
+        example: 800
+        type: number
+      estimated_duration_minutes:
+        example: 360
+        type: integer
+      fuel_cost_per_km:
+        example: 2.5
+        type: number
+      id:
+        example: 1
+        type: integer
+      is_active:
+        example: true
+        type: boolean
+      origin_city:
+        example: Харків
+        type: string
+      updated_at:
+        example: "2023-01-01T00:00:00Z"
+        type: string
+    type: object
+  model.Trip:
+    properties:
+      actual_arrival:
+        example: "2023-12-15T14:05:00Z"
+        type: string
+      actual_departure:
+        example: "2023-12-15T08:05:00Z"
+        type: string
+      bus:
+        $ref: '#/definitions/model.Bus'
+      bus_id:
+        example: 1
+        type: integer
+      current_passengers:
+        example: 35
+        type: integer
+      driver_name:
+        example: Петро Петренко
+        type: string
+      id:
+        example: 1
+        type: integer
+      route:
+        $ref: '#/definitions/model.Route'
+      route_id:
+        example: 1
+        type: integer
+      scheduled_departure:
+        example: "2023-12-15T08:00:00Z"
+        type: string
+      status:
+        enum:
+        - scheduled
+        - in_progress
+        - completed
+        - cancelled
+        example: completed
+        type: string
+    type: object
+  model.TripAnalytics:
+    properties:
+      avg_occupancy_rate:
+        example: 0.75
+        type: number
+      calculated_at:
+        example: "2023-12-15T20:00:00Z"
+        type: string
+      driver_cost:
+        example: 800
+        type: number
+      fuel_cost:
+        example: 1200.25
+        type: number
+      id:
+        example: 1
+        type: integer
+      max_passengers:
+        example: 45
+        type: integer
+      other_costs:
+        example: 150
+        type: number
+      profit:
+        example: 1399.75
+        type: number
+      profitability_percent:
+        example: 39.43
+        type: number
+      revenue:
+        example: 3550
+        type: number
+      total_passengers:
+        example: 142
+        type: integer
+      trip_id:
+        example: 1
+        type: integer
+    type: object
+  model.User:
+    properties:
+      created_at:
+        example: "2023-01-01T00:00:00Z"
+        type: string
+      email:
+        example: user@example.com
+        type: string
+      full_name:
+        example: Іван Іванов
+        type: string
+      id:
+        example: 1
+        type: integer
+      is_active:
+        example: true
+        type: boolean
+      role:
+        $ref: '#/definitions/model.Role'
+      role_id:
+        example: 2
+        type: integer
+      updated_at:
+        example: "2023-01-01T00:00:00Z"
+        type: string
+    type: object
+  service.DeviceAuthResponse:
+    properties:
+      access_token:
+        type: string
+      device_id:
+        type: integer
+      expires_in:
+        type: integer
+    type: object
+  service.LoginResponse:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      refresh_token:
+        type: string
+      user:
+        $ref: '#/definitions/model.User'
+    type: object
+  service.SyncEventsResponse:
+    properties:
+      last_synced_local_id:
+        type: integer
+      server_time:
+        type: string
+      synced_count:
+        type: integer
+      trip_current_passengers:
+        type: integer
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@busoptima.ua
+    name: API Support
+  description: API для системи оптимізації автобусних перевезень BusOptima
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: http://swagger.io/terms/
+  title: BusOptima API
+  version: "1.0"
+paths:
+  /admin/audit-logs:
+    get:
+      consumes:
+      - application/json
+      description: Повертає записи журналу аудиту з можливістю пагінації
+      parameters:
+      - default: 1
+        description: Номер сторінки
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Кількість записів на сторінці
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Отримати журнал аудиту
+      tags:
+      - Admin
+  /admin/backup:
+    post:
+      consumes:
+      - application/json
+      description: Створює резервну копію бази даних
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Створити резервну копію
+      tags:
+      - Admin
+  /admin/users:
+    get:
+      consumes:
+      - application/json
+      description: Повертає список всіх користувачів системи
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.User'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Отримати список користувачів
+      tags:
+      - Admin
+    post:
+      consumes:
+      - application/json
+      description: Створює нового користувача в системі
+      parameters:
+      - description: Дані користувача
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CreateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/model.User'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Створити нового користувача
+      tags:
+      - Admin
+  /admin/users/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Оновлює існуючого користувача за ID
+      parameters:
+      - description: ID користувача
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Оновлені дані користувача
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/model.User'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.User'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Оновити користувача
+      tags:
+      - Admin
+  /admin/users/{id}/role:
+    put:
+      consumes:
+      - application/json
+      description: Оновлює роль користувача за ID
+      parameters:
+      - description: ID користувача
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Нова роль користувача
+        in: body
+        name: role
+        required: true
+        schema:
+          $ref: '#/definitions/handler.UpdateUserRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Оновити роль користувача
+      tags:
+      - Admin
+  /analytics/dashboard:
+    get:
+      consumes:
+      - application/json
+      description: Повертає основні метрики та статистику для дашборду
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Отримати дані дашборду
+      tags:
+      - Analytics
+  /analytics/forecast:
+    get:
+      consumes:
+      - application/json
+      description: Повертає прогноз попиту на маршрути з аналітикою
+      parameters:
+      - description: ID маршруту для прогнозу
+        in: query
+        name: route_id
+        type: integer
+      - default: 7
+        description: Кількість днів для прогнозу
+        in: query
+        name: days
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Отримати прогноз попиту
+      tags:
+      - Analytics
+  /analytics/profitability:
+    get:
+      consumes:
+      - application/json
+      description: Повертає детальний аналіз прибутковості маршрутів та рейсів
+      parameters:
+      - description: Дата початку періоду (YYYY-MM-DD)
+        in: query
+        name: date_from
+        type: string
+      - description: Дата кінця періоду (YYYY-MM-DD)
+        in: query
+        name: date_to
+        type: string
+      - description: ID маршруту для фільтрації
+        in: query
+        name: route_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Отримати аналіз прибутковості
+      tags:
+      - Analytics
+  /auth/device:
+    post:
+      consumes:
+      - application/json
+      description: Автентифікує IoT-пристрій та повертає токен доступу
+      parameters:
+      - description: Дані пристрою
+        in: body
+        name: device
+        required: true
+        schema:
+          $ref: '#/definitions/handler.DeviceAuthRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.DeviceAuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Автентифікація IoT-пристрою
+      tags:
+      - Authentication
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Автентифікує користувача та повертає JWT токени
+      parameters:
+      - description: Облікові дані користувача
+        in: body
+        name: credentials
+        required: true
+        schema:
+          $ref: '#/definitions/handler.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Автентифікація користувача
+      tags:
+      - Authentication
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Оновлює токен доступу за допомогою refresh токена
+      parameters:
+      - description: Refresh токен
+        in: body
+        name: refresh
+        required: true
+        schema:
+          $ref: '#/definitions/handler.RefreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Оновити токен доступу
+      tags:
+      - Authentication
+  /buses:
+    get:
+      consumes:
+      - application/json
+      description: Повертає список всіх автобусів з можливістю фільтрації
+      parameters:
+      - description: Тільки активні автобуси
+        in: query
+        name: active_only
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.Bus'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Отримати список автобусів
+      tags:
+      - Buses
+    post:
+      consumes:
+      - application/json
+      description: Створює новий автобус в системі
+      parameters:
+      - description: Дані автобуса
+        in: body
+        name: bus
+        required: true
+        schema:
+          $ref: '#/definitions/model.Bus'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/model.Bus'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Створити новий автобус
+      tags:
+      - Buses
+  /buses/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Видаляє автобус за ID
+      parameters:
+      - description: ID автобуса
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Видалити автобус
+      tags:
+      - Buses
+    get:
+      consumes:
+      - application/json
+      description: Повертає автобус за вказаним ідентифікатором
+      parameters:
+      - description: ID автобуса
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Bus'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Отримати автобус за ID
+      tags:
+      - Buses
+    put:
+      consumes:
+      - application/json
+      description: Оновлює існуючий автобус за ID
+      parameters:
+      - description: ID автобуса
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Оновлені дані автобуса
+        in: body
+        name: bus
+        required: true
+        schema:
+          $ref: '#/definitions/model.Bus'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Bus'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Оновити автобус
+      tags:
+      - Buses
+  /iot/config/{tripId}:
+    get:
+      consumes:
+      - application/json
+      description: Повертає конфігурацію рейсу для IoT-пристрою
+      parameters:
+      - description: ID рейсу
+        in: path
+        name: tripId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Отримати конфігурацію рейсу
+      tags:
+      - IoT
+  /iot/events:
+    post:
+      consumes:
+      - application/json
+      description: Отримує та зберігає події входу/виходу пасажирів від IoT-пристрою
+      parameters:
+      - description: Події пасажирів
+        in: body
+        name: events
+        required: true
+        schema:
+          $ref: '#/definitions/handler.SyncEventsRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/service.SyncEventsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Синхронізація подій пасажирів
+      tags:
+      - IoT
+  /iot/price:
+    post:
+      consumes:
+      - application/json
+      description: Отримує рекомендацію ціни від IoT-пристрою
+      parameters:
+      - description: Рекомендація ціни
+        in: body
+        name: recommendation
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Отримати рекомендацію ціни
+      tags:
+      - IoT
+  /routes:
+    get:
+      consumes:
+      - application/json
+      description: Повертає список всіх маршрутів з можливістю фільтрації
+      parameters:
+      - description: Тільки активні маршрути
+        in: query
+        name: active_only
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.Route'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Отримати список маршрутів
+      tags:
+      - Routes
+    post:
+      consumes:
+      - application/json
+      description: Створює новий маршрут в системі
+      parameters:
+      - description: Дані маршруту
+        in: body
+        name: route
+        required: true
+        schema:
+          $ref: '#/definitions/model.Route'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/model.Route'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Створити новий маршрут
+      tags:
+      - Routes
+  /routes/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Видаляє маршрут за ID
+      parameters:
+      - description: ID маршруту
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Видалити маршрут
+      tags:
+      - Routes
+    get:
+      consumes:
+      - application/json
+      description: Повертає маршрут за вказаним ідентифікатором
+      parameters:
+      - description: ID маршруту
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Route'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Отримати маршрут за ID
+      tags:
+      - Routes
+    put:
+      consumes:
+      - application/json
+      description: Оновлює існуючий маршрут за ID
+      parameters:
+      - description: ID маршруту
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Оновлені дані маршруту
+        in: body
+        name: route
+        required: true
+        schema:
+          $ref: '#/definitions/model.Route'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Route'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Оновити маршрут
+      tags:
+      - Routes
+  /trips:
+    get:
+      consumes:
+      - application/json
+      description: Повертає список всіх рейсів з можливістю фільтрації
+      parameters:
+      - description: ID маршруту для фільтрації
+        in: query
+        name: route_id
+        type: integer
+      - description: Статус рейсу (scheduled, in_progress, completed, cancelled)
+        in: query
+        name: status
+        type: string
+      - description: Дата початку періоду (YYYY-MM-DD)
+        in: query
+        name: date_from
+        type: string
+      - description: Дата кінця періоду (YYYY-MM-DD)
+        in: query
+        name: date_to
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.Trip'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Отримати список рейсів
+      tags:
+      - Trips
+    post:
+      consumes:
+      - application/json
+      description: Створює новий рейс в системі
+      parameters:
+      - description: Дані рейсу
+        in: body
+        name: trip
+        required: true
+        schema:
+          $ref: '#/definitions/model.Trip'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/model.Trip'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Створити новий рейс
+      tags:
+      - Trips
+  /trips/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Повертає рейс за вказаним ідентифікатором
+      parameters:
+      - description: ID рейсу
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Trip'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Отримати рейс за ID
+      tags:
+      - Trips
+    put:
+      consumes:
+      - application/json
+      description: Оновлює існуючий рейс за ID
+      parameters:
+      - description: ID рейсу
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Оновлені дані рейсу
+        in: body
+        name: trip
+        required: true
+        schema:
+          $ref: '#/definitions/model.Trip'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Trip'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Оновити рейс
+      tags:
+      - Trips
+  /trips/{id}/analytics:
+    get:
+      consumes:
+      - application/json
+      description: Повертає детальну аналітику для конкретного рейсу
+      parameters:
+      - description: ID рейсу
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.TripAnalytics'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Отримати аналітику рейсу
+      tags:
+      - Trips
+  /trips/{id}/events:
+    get:
+      consumes:
+      - application/json
+      description: Повертає список подій входу/виходу пасажирів для конкретного рейсу
+      parameters:
+      - description: ID рейсу
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.PassengerEvent'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Отримати події пасажирів рейсу
+      tags:
+      - Trips
+securityDefinitions:
+  BearerAuth:
+    description: 'JWT Authorization header using the Bearer scheme. Example: "Authorization:
+      Bearer {token}"'
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

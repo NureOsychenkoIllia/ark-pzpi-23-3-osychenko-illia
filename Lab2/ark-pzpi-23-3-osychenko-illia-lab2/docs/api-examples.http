@@ -1,0 +1,201 @@
+### BusOptima API Examples
+### Використовуйте цей файл з REST Client extension у VS Code
+
+@baseUrl = http://localhost:8080/api
+@token = your-jwt-token-here
+
+### 1. Автентифікація користувача
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@busoptima.ua",
+  "password": "password123"
+}
+
+### 2. Автентифікація IoT-пристрою
+POST {{baseUrl}}/auth/device
+Content-Type: application/json
+
+{
+  "serial_number": "IOT001",
+  "token": "device-auth-token"
+}
+
+### 3. Оновлення токена
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "your-refresh-token"
+}
+
+### 4. Отримати список маршрутів
+GET {{baseUrl}}/routes?active_only=true
+Authorization: Bearer {{token}}
+
+### 5. Отримати маршрут за ID
+GET {{baseUrl}}/routes/1
+Authorization: Bearer {{token}}
+
+### 6. Створити новий маршрут
+POST {{baseUrl}}/routes
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "origin_city": "Харків",
+  "destination_city": "Дніпро",
+  "distance_km": 220.5,
+  "base_price": 180.00,
+  "fuel_cost_per_km": 2.30,
+  "driver_cost_per_trip": 600.00,
+  "estimated_duration_minutes": 180
+}
+
+### 7. Оновити маршрут
+PUT {{baseUrl}}/routes/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "origin_city": "Харків",
+  "destination_city": "Київ",
+  "distance_km": 480.5,
+  "base_price": 280.00,
+  "fuel_cost_per_km": 2.50,
+  "driver_cost_per_trip": 800.00,
+  "estimated_duration_minutes": 360
+}
+
+### 8. Видалити маршрут
+DELETE {{baseUrl}}/routes/1
+Authorization: Bearer {{token}}
+
+### 9. Отримати список автобусів
+GET {{baseUrl}}/buses?active_only=true
+Authorization: Bearer {{token}}
+
+### 10. Створити новий автобус
+POST {{baseUrl}}/buses
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "registration_number": "AA1234BB",
+  "capacity": 50,
+  "model": "Mercedes Sprinter",
+  "fuel_consumption_per_100km": 12.5
+}
+
+### 11. Отримати список рейсів
+GET {{baseUrl}}/trips?route_id=1&status=scheduled
+Authorization: Bearer {{token}}
+
+### 12. Створити новий рейс
+POST {{baseUrl}}/trips
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "route_id": 1,
+  "bus_id": 1,
+  "scheduled_departure": "2023-12-16T08:00:00Z",
+  "driver_name": "Петро Петренко"
+}
+
+### 13. Отримати події пасажирів рейсу
+GET {{baseUrl}}/trips/1/events
+Authorization: Bearer {{token}}
+
+### 14. Отримати аналітику рейсу
+GET {{baseUrl}}/trips/1/analytics
+Authorization: Bearer {{token}}
+
+### 15. Синхронізація подій від IoT-пристрою
+POST {{baseUrl}}/iot/events
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "trip_id": 1,
+  "events": [
+    {
+      "local_id": 1,
+      "event_type": "board",
+      "timestamp": "2023-12-15T08:15:00Z",
+      "latitude": 49.9935,
+      "longitude": 36.2304,
+      "passenger_count_after": 25
+    },
+    {
+      "local_id": 2,
+      "event_type": "alight",
+      "timestamp": "2023-12-15T10:30:00Z",
+      "latitude": 50.4501,
+      "longitude": 30.5234,
+      "passenger_count_after": 20
+    }
+  ]
+}
+
+### 16. Отримати конфігурацію рейсу для IoT
+GET {{baseUrl}}/iot/config/1
+Authorization: Bearer {{token}}
+
+### 17. Отримати дашборд аналітики
+GET {{baseUrl}}/analytics/dashboard
+Authorization: Bearer {{token}}
+
+### 18. Отримати прогноз попиту
+GET {{baseUrl}}/analytics/forecast?route_id=1&days=7
+Authorization: Bearer {{token}}
+
+### 19. Отримати аналіз прибутковості
+GET {{baseUrl}}/analytics/profitability?date_from=2023-12-01&date_to=2023-12-15
+Authorization: Bearer {{token}}
+
+### 20. Отримати список користувачів (Admin)
+GET {{baseUrl}}/admin/users
+Authorization: Bearer {{token}}
+
+### 21. Створити нового користувача (Admin)
+POST {{baseUrl}}/admin/users
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "email": "newuser@example.com",
+  "password": "password123",
+  "full_name": "Новий Користувач",
+  "role_id": 2
+}
+
+### 22. Оновити користувача (Admin)
+PUT {{baseUrl}}/admin/users/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "email": "updated@example.com",
+  "full_name": "Оновлений Користувач",
+  "role_id": 2,
+  "is_active": true
+}
+
+### 23. Оновити роль користувача (Admin)
+PUT {{baseUrl}}/admin/users/1/role
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "role_id": 3
+}
+
+### 24. Отримати журнал аудиту (Admin)
+GET {{baseUrl}}/admin/audit-logs?page=1&limit=20
+Authorization: Bearer {{token}}
+
+### 25. Створити резервну копію (Admin)
+POST {{baseUrl}}/admin/backup
+Authorization: Bearer {{token}}
