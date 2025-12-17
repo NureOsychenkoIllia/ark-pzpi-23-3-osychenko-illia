@@ -24,7 +24,7 @@ func NewAdminHandler(authService service.AuthService) *AdminHandler {
 //	@Accept			json
 //	@Produce		json
 //	@Success		200	{array}		model.User
-//	@Failure		500	{object}	map[string]string
+//	@Failure 500 {object} ErrorResponse
 //	@Security		BearerAuth
 //	@Router			/admin/users [get]
 func (h *AdminHandler) GetUsers(c *fiber.Ctx) error {
@@ -52,8 +52,8 @@ type CreateUserRequest struct {
 //	@Produce		json
 //	@Param			user	body		CreateUserRequest	true	"Дані користувача"
 //	@Success		201		{object}	model.User
-//	@Failure		400		{object}	map[string]string
-//	@Failure		500		{object}	map[string]string
+//	@Failure 400 {object} ErrorResponse
+//	@Failure 500 {object} ErrorResponse
 //	@Security		BearerAuth
 //	@Router			/admin/users [post]
 func (h *AdminHandler) CreateUser(c *fiber.Ctx) error {
@@ -89,8 +89,8 @@ func (h *AdminHandler) CreateUser(c *fiber.Ctx) error {
 //	@Param			id		path		int			true	"ID користувача"
 //	@Param			user	body		model.User	true	"Оновлені дані користувача"
 //	@Success		200		{object}	model.User
-//	@Failure		400		{object}	map[string]string
-//	@Failure		500		{object}	map[string]string
+//	@Failure 400 {object} ErrorResponse
+//	@Failure 500 {object} ErrorResponse
 //	@Security		BearerAuth
 //	@Router			/admin/users/{id} [put]
 func (h *AdminHandler) UpdateUser(c *fiber.Ctx) error {
@@ -128,8 +128,8 @@ type UpdateUserRoleRequest struct {
 //	@Param			id		path		int						true	"ID користувача"
 //	@Param			role	body		UpdateUserRoleRequest	true	"Нова роль користувача"
 //	@Success		200		{object}	map[string]string
-//	@Failure		400		{object}	map[string]string
-//	@Failure		500		{object}	map[string]string
+//	@Failure 400 {object} ErrorResponse
+//	@Failure 500 {object} ErrorResponse
 //	@Security		BearerAuth
 //	@Router			/admin/users/{id}/role [put]
 func (h *AdminHandler) UpdateUserRole(c *fiber.Ctx) error {
@@ -161,7 +161,7 @@ func (h *AdminHandler) UpdateUserRole(c *fiber.Ctx) error {
 //	@Param			page	query		int	false	"Номер сторінки"	default(1)
 //	@Param			limit	query		int	false	"Кількість записів на сторінці"	default(20)
 //	@Success		200		{object}	map[string]interface{}
-//	@Failure		500		{object}	map[string]string
+//	@Failure 500 {object} ErrorResponse
 //	@Security		BearerAuth
 //	@Router			/admin/audit-logs [get]
 func (h *AdminHandler) GetAuditLogs(c *fiber.Ctx) error {
@@ -199,7 +199,7 @@ func (h *AdminHandler) GetAuditLogs(c *fiber.Ctx) error {
 //	@Accept			json
 //	@Produce		json
 //	@Success		200	{object}	map[string]interface{}
-//	@Failure		500	{object}	map[string]string
+//	@Failure 500 {object} ErrorResponse
 //	@Security		BearerAuth
 //	@Router			/admin/backup [post]
 func (h *AdminHandler) CreateBackup(c *fiber.Ctx) error {

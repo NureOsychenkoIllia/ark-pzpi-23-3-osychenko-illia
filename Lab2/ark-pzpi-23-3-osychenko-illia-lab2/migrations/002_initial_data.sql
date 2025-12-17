@@ -56,11 +56,11 @@ INSERT INTO routes (origin_city, destination_city, distance_km, base_price, fuel
     ('Львів', 'Київ', 540.0, 200.00, 4.50, 1000.00, 480, true);
 
 -- Тестові автобуси
-INSERT INTO buses (registration_number, capacity, model, fuel_consumption_per_100km) VALUES
-    ('AA1234BB', 50, 'Mercedes Sprinter', 12.5),
-    ('BB5678CC', 35, 'Iveco Daily', 11.8),
-    ('CC9012DD', 45, 'Volkswagen Crafter', 13.2),
-    ('DD3456EE', 55, 'MAN TGE', 14.1);
+INSERT INTO buses (registration_number, capacity, model, fuel_consumption_per_100km, is_active) VALUES
+    ('AA1234BB', 50, 'Mercedes Sprinter', 12.5, true),
+    ('BB5678CC', 35, 'Iveco Daily', 11.8, false),
+    ('CC9012DD', 45, 'Volkswagen Crafter', 13.2,  true),
+    ('DD3456EE', 55, 'MAN TGE', 14.1, true);
 
 -- Тестові IoT-пристрої
 INSERT INTO devices (serial_number, auth_token_hash, bus_id, firmware_version) VALUES

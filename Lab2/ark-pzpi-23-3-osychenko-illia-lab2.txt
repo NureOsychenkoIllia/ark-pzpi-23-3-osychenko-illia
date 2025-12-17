@@ -1,0 +1,776 @@
+                    МІНІСТЕРСТВО ОСВІТИ І НАУКИ УКРАЇНИ
+   ХАРКІВСЬКИЙ НАЦІОНАЛЬНИЙ УНІВЕРСИТЕТ РАДІОЕЛЕКТРОНІКИ
+
+
+
+                           Кафедра Програмної інженерії
+
+
+
+
+                                        Звіт
+                             з лабораторної роботи №2
+                     з дисципліни: «Аналіз та рефакторинґ коду»
+з теми: «Розробка бази даних для серверної частини системи та прикладного
+                           програмного інтерфейсу (API)»
+
+
+
+
+Виконав:                                                               Перевірив:
+ст. гр. ПЗПІ-23-3                                          ст. викладач катедри ПІ
+Осиченко І. О.                                                      Сокорчук І. П.
+
+
+
+
+                                   Харків – 2025
+                                                                                2
+                               1 ІСТОРІЯ ЗМІН
+
+№    Дата    Версія звіту     Опис змін та виправлень
+1 08.12.2025     0.1          Створено розділ «Завдання»
+2 12.12.2025     0.2          Створено розділ «Опис виконаної роботи»
+3 14.12.2025     1.0          Завершено роботу над звітом
+
+
+
+                                 2 ЗАВДАННЯ
+
+
+     Ознайомитися з процесом розробки серверної частини програмної системи,
+включаючи проектування бази даних (БД), розробку API для взаємодії з клієнтами,
+та перевірку (тестування) їхньої взаємодії. Оволодіти методами проектування
+діаграм UML та ER, розробки БД, програмної реалізації API, а також роботи з
+репозиторіями Git та створення технічної документації.
+
+
+
+                       3 ОПИС ВИКОНАНОЇ РОБОТИ
+
+
+     3.1 Архітектурні рішення серверної частини
+
+     Серверна частина системи BusOptima побудована за принципами чистої
+архітектури (Clean Architecture) з чітким розділенням відповідальностей між
+шарами. Структура проєкту організована наступним чином:
+
+     server/
+     ├── cmd/
+     │   └── api/
+     │        └── main.go            # Точка входу
+     ├── internal/
+     │   ├── handler/                #   Рівень представлення (HTTP handlers)
+     │   ├── service/                #   Рівень бізнес-логіки
+     │   ├── repository/             #   Рівень доступу до даних
+     │   ├── model/                  #   Доменні моделі
+     │   ├── middleware/             #   JWT, RBAC, logging
+     │   └── config/                 #   Конфігурація
+     ├── migrations/                 #   SQL міграції
+     ├── docs/                       #   Swagger документація
+     └── docker-compose.yml
+                                                                                3
+     Рівень представлення (handlers) відповідає за обробку HTTP-запитів,
+валідацію вхідних даних та формування відповідей у форматі JSON. Рівень бізнес-
+логіки (services) інкапсулює правила предметної області: алгоритми динамічного
+ціноутворення, прогнозування попиту методом ковзного середнього та розрахунок
+рентабельності рейсів. Рівень доступу до даних (repositories) забезпечує взаємодію
+з PostgreSQL через драйвер pgx та бібліотеку sqlx.
+
+     3.2 UML діаграма прецедентів
+
+     Діаграма прецедентів описує сценарії взаємодії акторів із серверною
+частиною системи. Визначено чотири категорії акторів: IoT-пристрій, диспетчер,
+бізнес-адміністратор та технічний адміністратор.
+     IoT-пристрій виконує прецеденти: автентифікація пристрою, відправка подій
+про пасажирів, відправка рекомендацій щодо ціни, отримання конфігурації рейсу.
+Диспетчер має доступ до прецедентів: перегляд панелі моніторингу в реальному
+часі, перегляд прогнозів попиту, перегляд аналітики рентабельності, генерація
+звітів, отримання сповіщень про критичні події.
+     Бізнес-адміністратор виконує прецеденти: управління маршрутами (CRUD),
+управління автобусами (CRUD), управління користувачами (CRUD), призначення
+ролей користувачам, налаштування параметрів динамічного ціноутворення,
+перегляд журналу дій користувачів. Технічний адміністратор має доступ до
+прецедентів: резервне копіювання бази даних, перегляд системних логів,
+управління IoT-пристроями.
+     Прецедент автентифікації є спільним для всіх акторів. Авторизація
+реалізована через систему ролей та дозволів (RBAC): кожна роль має набір
+permissions, які перевіряються middleware перед виконанням дії.
+                                                           4
+
+
+
+
+Рисунок 3.1 – UML діаграма прецедентів серверної частини
+                                                                                          5
+     3.3 ER діаграма та структура бази даних
+
+     Модель даних системи BusOptima складається з трьох категорій сутностей:
+адміністративні (управління системою), бізнес-сутності (предметна область) та
+аналітичні (розрахункові дані).
+     Адміністративні сутності:
+      –   Сутність roles визначає ролі користувачів: id (PK), name (UNIQUE),
+          description. Сутність permissions зберігає дозволи: id (PK), name
+          (UNIQUE), description. Сутність role_permissions реалізує зв’язок багато-
+          до-багатьох між ролями та дозволами: role_id (FK), permission_id (FK),
+          PRIMARY KEY (role_id, permission_id).
+      –   Сутність users зберігає користувачів: id (PK), email (UNIQUE),
+          password_hash, full_name, role_id (FK → roles), is_active, created_at,
+          updated_at. Сутність audit_logs фіксує дії користувачів: id (PK), user_id
+          (FK → users), action, entity_type, entity_id, old_values (JSONB), new_values
+          (JSONB), ip_address, created_at.
+     Бізнес-сутності:
+      –   Сутність routes описує маршрути: id (PK), origin_city, destination_city,
+          distance_km,        base_price,    fuel_cost_per_km,        driver_cost_per_trip,
+          estimated_duration_minutes,       is_active.     Сутність     buses     містить
+          автобуси: id (PK), registration_number (UNIQUE), capacity, model,
+          fuel_consumption_per_100km, is_active.
+      –   Сутність devices зберігає IoT-пристрої: id (PK), serial_number (UNIQUE),
+          auth_token_hash, bus_id (FK → buses, UNIQUE), firmware_version,
+          last_sync_at, is_active. Сутність trips описує рейси: id (PK), route_id (FK
+          → routes), bus_id (FK → buses), scheduled_departure, actual_departure,
+          actual_arrival, status, current_passengers, driver_name.
+      –   Сутність       passenger_events   фіксує    події:    id   (PK),   trip_id   (FK
+          →    trips),     event_type   CHECK        (entry/exit),   timestamp,    latitude,
+          longitude, passenger_count_after, device_local_id, is_synced. Сутність
+          price_recommendations зберігає рекомендації: id (PK), trip_id (FK →
+          trips), base_price, recommended_price, occupancy_rate, demand_coefficient,
+          time_coefficient, day_coefficient, created_at.
+                                                                                   6
+     Аналітичні сутності:
+     –   Сутність trip_analytics містить розраховані показники: id (PK), trip_id (FK
+         → trips, UNIQUE), total_passengers, max_passengers, avg_occupancy_rate,
+         revenue, fuel_cost, driver_cost, other_costs, profit, profitability_percent,
+         calculated_at.
+     –   Сутність demand_forecasts зберігає прогнози: id (PK), route_id (FK →
+         routes), forecast_date, day_of_week, predicted_passengers, confidence_lower,
+         confidence_upper, actual_passengers, created_at.
+     –   Сутність notifications зберігає сповіщення: id (PK), user_id (FK → users),
+         trip_id (FK → trips), type, severity CHECK (info/warning/critical), message,
+         is_read, created_at.
+
+
+
+
+                      Рисунок 3.2 – ER діаграма бази даних
+
+     3.4 Нормалізація бази даних
+
+     Схема бази даних приведена до третьої нормальної форми (3NF) через
+послідовне усунення аномалій.
+                                                                       7
+     3.4.1 Перша нормальна форма (1NF)
+
+     Перша нормальна форма вимагає, щоб кожен атрибут містив атомарне
+значення. На початковому етапі всі дані системи можна представити як одне
+універсальне відношення, що містить усі атрибути всіх сутностей.
+
+
+
+
+                 Рисунок 3.3 – Універсальне відношення (1NF)
+                                                                                8
+     Проблеми універсального відношення: масова надлишковість даних, аномалії
+вставки (не можна додати роль без користувача), аномалії видалення (видалення
+рейсу видаляє маршрут), аномалії оновлення (зміна назви ролі потребує оновлення
+багатьох рядків).
+     Приклад атомарності: замість зберігання списку дозволів як рядка
+«routes:read,routes:write» у таблиці roles, створено окрему таблицю permissions та
+зв’язкову таблицю role_permissions. Поля old_values та new_values у audit_logs
+використовують тип JSONB, який PostgreSQL обробляє як атомарний тип з
+можливістю індексації.
+
+     3.4.2 Друга нормальна форма (2NF)
+
+     Друга нормальна форма вимагає усунення часткових залежностей від
+складених ключів. Кожен неключовий атрибут повинен залежати від повного
+первинного ключа.
+
+
+
+
+                    Рисунок 3.4 – Схема після приведення до 2NF
+
+     Приклад: у зв’язковій таблиці role_permissions немає неключових атрибутів,
+що залежать лише від частини ключа. Атрибути origin_city та destination_city
+залежать виключно від id маршруту. Однак на цьому етапі залишаються транзитивні
+                                                                                      9
+залежності: у таблиці users поля role_name та role_description залежать від role_id, а
+не безпосередньо від user_id.
+
+      3.4.3 Третя нормальна форма (3NF)
+
+      Третя нормальна форма вимагає усунення транзитивних залежностей. Кожен
+неключовий атрибут повинен залежати тільки від первинного ключа, а не від інших
+неключових атрибутів.
+
+
+
+
+                        Рисунок 3.5 – Фінальна схема у 3NF
+
+      Приклад усунення транзитивної залежності: таблиця users містила поля
+role_name та role_description, які залежали від role_id, а не безпосередньо від user_id.
+Рішення: винесено в окрему таблицю roles. Аналогічно, розрахункові показники
+рейсу (profit, profitability_percent) винесено в окрему таблицю trip_analytics,
+оскільки вони залежать від сукупності даних, а не від trip_id безпосередньо.
+                                                                                            10
+      3.5 Діаграма структури бази даних
+
+      Структура бази даних відображає зв’язки між таблицями та обмеження
+цілісності.
+      Зв’язки     адміністративного          блоку:     users.role_id    →   roles.id    (N:1),
+role_permissions.role_id    →     roles.id     (N:1),    role_permissions.permission_id     →
+permissions.id (N:1), audit_logs.user_id → users.id (N:1).
+      Зв’язки бізнесового блоку: devices.bus_id → buses.id (1:1), trips.route_id →
+routes.id (N:1), trips.bus_id → buses.id (N:1), passenger_events.trip_id → trips.id (N:1)
+ON DELETE CASCADE, price_recommendations.trip_id → trips.id (N:1).
+      Зв’язки     аналітичного     блоку:       trip_analytics.trip_id   →    trips.id    (1:1),
+demand_forecasts.route_id → routes.id (N:1), notifications.user_id → users.id (N:1),
+notifications.trip_id → trips.id (N:1).
+      Індекси для оптимізації запитів: passenger_events(trip_id, timestamp) для
+вибірки подій рейсу, trips(route_id, scheduled_departure) для пошуку рейсів
+за маршрутом та датою, audit_logs(user_id, created_at) для перегляду історії
+дій, notifications(user_id, is_read) для отримання непрочитаних сповіщень,
+demand_forecasts(route_id, forecast_date) для отримання прогнозів.
+      Партиціонування: таблиця passenger_events розідлена за полем timestamp
+(PARTITION BY RANGE) з місячними секціями для ефективного архівування
+історичних даних.
+
+
+
+
+                     Рисунок 3.6 – Діаграма структури бази даних
+                                                                                          11
+      3.6 Реалізація бази даних
+
+      Для створення бази даних використано систему міграцій PostgreSQL.
+Схема включає 14 таблиць, згрупованих за функціональним призначенням:
+адміністративні (5 таблиць), бізнес-таблиці (6 таблиць) та аналітичні (3 таблиці).
+      Адміністративні таблиці забезпечують систему ролей та дозволів (RBAC):
+permissions зберігає дозволи, roles — ролі користувачів, role_permissions — зв’язок
+багато-до-багатьох, users — користувачі з посиланням на роль, audit_logs — журнал
+дій з полями old_values та new_values типу JSONB.
+      Бізнес-таблиці описують предметну область: routes (маршрути з витратами
+на паливо та водія), buses (автобуси з характеристиками споживання), devices (IoT-
+пристрої з токенами автентифікації), trips (рейси зі статусами), passenger_events
+(події входу/виходу з партиціонуванням за timestamp), price_recommendations
+(рекомендації динамічного ціноутворення).
+      Аналітичні       таблиці    зберігають   розраховані   показники:        trip_analytics
+(рентабельність       рейсів),   demand_forecasts   (прогнози     попиту   з     довірчими
+інтервалами), notifications (сповіщення з рівнями критичності).
+      Повний SQL-скрипт створення таблиць, індексів та початкових даних
+наведено у Додатку В.6.
+
+      3.7 Функції роботи з базою даних (Repository Pattern)
+
+      Для роботи з базою даних реалізовано патерн Repository з використанням
+бібліотеки sqlx. Кожна сутність має відповідний репозиторій з методами CRUD та
+специфічними запитами для бізнес-логіки.
+      RouteRepository забезпечує операції з маршрутами: Create (додавання
+з поверненням ID), GetByID (пошук за ідентифікатором), GetAll (список з
+фільтрацією activeOnly), Update (оновлення з updated_at), Delete (soft delete через
+is_active = false).
+      AnalyticsRepository        реалізовуватиме    розрахунки:    CalculateTripAnalytics
+виконує JOIN запити для отримання даних рейсу, маршруту та автобуса, розраховує
+витрати за формулою (паливо + водій + інші), обчислює прибуток та рентабельність,
+зберігає результати з ON CONFLICT DO UPDATE для ідемпотентності.
+                                                                               12
+     PassengerEventRepository підтримує пакетну синхронізацію подій від IoT-
+пристроїв через транзакції, забезпечуючи атомарність операцій при збереженні
+масиву подій.
+     Повний код репозиторіїв наведено у Додатку В.
+
+     3.8 Специфікація REST API
+
+     Серверна частина надає REST API для взаємодії з IoT-пристроями та веб-
+клієнтами. API включає 28 ендпоїнтів, згрупованих за функціональними модулями:
+автентифікація (3), IoT (3), маршрути (5), автобуси (5), рейси (6), аналітика (3),
+адміністрування (6).
+
+     3.8.1 Модуль автентифікації
+
+Таблиця 3.1 – Ендпоінти модуля автентифікації
+Метод    Ендпоінт                                  Опис
+POST     /api/auth/login                           Автентифікація користувача
+POST     /api/auth/device                          Автентифікація IoT-пристрою
+POST     /api/auth/refresh                         Оновлення JWT-токена
+
+     POST /api/auth/login
+     Запит:
+
+     {
+          "email": "dispatcher@busoptima.ua",
+          "password": "securePassword123"
+     }
+
+
+     Відповідь (200 OK):
+
+     {
+         "access_token": "eyJhbGciOiJIUzI1NiIs...",
+         "refresh_token": "eyJhbGciOiJIUzI1NiIs...",
+         "expires_in": 3600,
+         "user": {
+             "id": 1,
+             "email": "dispatcher@busoptima.ua",
+             "full_name": "Іван Петренко",
+             "role": "dispatcher",
+             "permissions": ["routes:read", "analytics:read",
+     "reports:export"]
+         }
+     }
+                                                                              13
+     Помилки: 401 Unauthorized (невірні облікові дані), 403 Forbidden (користувач
+деактивований).
+
+     3.8.2 Модуль IoT-пристроїв
+
+Таблиця 3.2 – Ендпоінти модуля IoT-пристроїв
+Метод    Ендпоінт                                Опис
+POST     /api/iot/events                         Синхронізація подій пасажирів
+POST     /api/iot/price                          Відправка рекомендації ціни
+GET      /api/iot/config/{tripId}                Отримання конфігурації рейсу
+
+     POST /api/iot/events — пакетна синхронізація подій від IoT-пристрою.
+     Заголовки: Authorization: Bearer {device_token}
+     Запит:
+
+     {
+          "trip_id": 42,
+          "events": [
+              {
+                  "local_id": 1001,
+                  "event_type": "entry",
+                  "timestamp": "2025-12-14T08:15:30Z",
+                  "latitude": 49.9935,
+                  "longitude": 36.2304,
+                  "passenger_count_after": 15
+              }
+          ]
+     }
+
+
+     Відповідь (201 Created):
+
+     {
+          "synced_count": 1,
+          "last_synced_local_id": 1001,
+          "trip_current_passengers": 15,
+          "server_time": "2025-12-14T08:15:35Z"
+     }
+                                                                             14
+     3.8.3 Модуль маршрутів (CRUD)
+
+Таблиця 3.3 – Ендпоінти модуля маршрутів
+Метод      Ендпоінт                         Роль           Опис
+GET        /api/routes                      dispatcher+    Список маршрутів
+GET        /api/routes/{id}                 dispatcher+    Деталі маршруту
+POST       /api/routes                      admin          Створення маршруту
+PUT        /api/routes/{id}                 admin          Оновлення маршруту
+DELETE     /api/routes/{id}                 admin          Видалення маршруту
+
+     3.8.4 Модуль автобусів (CRUD)
+
+Таблиця 3.4 – Ендпоінти модуля автобусів
+Метод      Ендпоінт                          Роль           Опис
+GET        /api/buses                        dispatcher+    Список автобусів
+GET        /api/buses/{id}                   dispatcher+    Деталі автобуса
+POST       /api/buses                        admin          Створення автобуса
+PUT        /api/buses/{id}                   admin          Оновлення автобуса
+DELETE     /api/buses/{id}                   admin          Видалення автобуса
+
+     3.8.5 Модуль рейсів (CRUD)
+
+Таблиця 3.5 – Ендпоінти модуля рейсів
+Метод    Ендпоінт                          Роль           Опис
+GET      /api/trips                        dispatcher+    Список рейсів
+GET      /api/trips/{id}                   dispatcher+    Деталі рейсу
+POST     /api/trips                        admin          Створення рейсу
+PUT      /api/trips/{id}                   admin          Оновлення рейсу
+GET      /api/trips/{id}/events            dispatcher+    Події пасажирів рейсу
+GET      /api/trips/{id}/analytics         dispatcher+    Аналітика рейсу
+
+     POST /api/routes — створення нового маршруту.
+     Запит:
+
+     {
+          "origin_city": "Харків",
+          "destination_city": "Одеса",
+          "distance_km": 650.0,
+          "base_price": 200.00,
+                                                     15
+    "fuel_cost_per_km": 4.50,
+    "driver_cost_per_trip": 1000.00,
+    "estimated_duration_minutes": 480
+}
+
+
+Відповідь (201 Created):
+
+{
+    "id": 5,
+    "origin_city": "Харків",
+    "destination_city": "Одеса",
+    "distance_km": 650.0,
+    "base_price": 200.00,
+    "fuel_cost_per_km": 4.50,
+    "driver_cost_per_trip": 1000.00,
+    "estimated_duration_minutes": 480,
+    "is_active": true,
+    "created_at": "2025-12-14T10:30:00Z"
+}
+
+
+POST /api/buses — створення нового автобуса.
+Запит:
+
+{
+    "registration_number": "АА1234ВВ",
+    "capacity": 50,
+    "model": "Mercedes Sprinter",
+    "fuel_consumption_per_100km": 12.5
+}
+
+
+Відповідь (201 Created):
+
+{
+    "id": 3,
+    "registration_number": "АА1234ВВ",
+    "capacity": 50,
+    "model": "Mercedes Sprinter",
+    "fuel_consumption_per_100km": 12.5,
+    "is_active": true,
+    "created_at": "2025-12-14T10:35:00Z"
+}
+
+
+POST /api/trips — створення нового рейсу.
+Запит:
+
+{
+    "route_id": 1,
+    "bus_id": 3,
+    "scheduled_departure": "2025-12-15T08:00:00Z",
+    "driver_name": "Петренко І.П."
+}
+                                                                16
+Відповідь (201 Created):
+
+{
+    "id": 42,
+    "route_id": 1,
+    "route": {
+        "id": 1,
+        "origin_city": "Харків",
+        "destination_city": "Київ"
+    },
+    "bus_id": 3,
+    "bus": {
+        "id": 3,
+        "registration_number": "АА1234ВВ",
+        "model": "Mercedes Sprinter"
+    },
+    "scheduled_departure": "2025-12-15T08:00:00Z",
+    "actual_departure": null,
+    "actual_arrival": null,
+    "status": "scheduled",
+    "current_passengers": 0,
+    "driver_name": "Петренко І.П."
+}
+
+
+PUT /api/trips/{id} — оновлення рейсу (часткове оновлення).
+Запит:
+
+{
+    "status": "in_progress",
+    "actual_departure": "2025-12-15T08:05:00Z",
+    "current_passengers": 25
+}
+
+
+Відповідь (200 OK):
+
+{
+    "id": 42,
+    "route_id": 1,
+    "bus_id": 3,
+    "scheduled_departure": "2025-12-15T08:00:00Z",
+    "actual_departure": "2025-12-15T08:05:00Z",
+    "actual_arrival": null,
+    "status": "in_progress",
+    "current_passengers": 25,
+    "driver_name": "Петренко І.П."
+}
+
+
+GET /api/trips/{id}/events — отримання подій пасажирів рейсу.
+Відповідь (200 OK):
+
+{
+    "trip_id": 42,
+    "events": [
+                                                                              17
+               {
+                    "id": 1001,
+                    "event_type": "entry",
+                    "timestamp": "2025-12-15T08:15:30Z",
+                    "latitude": 49.9935,
+                    "longitude": 36.2304,
+                    "passenger_count_after": 15,
+                    "device_local_id": 1001
+               },
+               {
+                    "id": 1002,
+                    "event_type": "exit",
+                    "timestamp": "2025-12-15T09:45:20Z",
+                    "latitude": 50.4501,
+                    "longitude": 30.5234,
+                    "passenger_count_after": 8,
+                    "device_local_id": 1002
+              }
+          ],
+          "total_events": 2,
+          "current_passengers": 8
+     }
+
+
+     3.8.6 Модуль аналітики
+
+Таблиця 3.6 – Ендпоінти модуля аналітики
+Метод    Ендпоінт                                    Опис
+GET      /api/analytics/dashboard                    Дані панелі моніторингу
+GET      /api/analytics/forecast                     Прогноз попиту
+GET      /api/analytics/profitability                Аналітика рентабельності
+GET      /api/trips/{id}/analytics                   Аналітика конкретного рейсу
+
+     GET /api/analytics/forecast — прогноз попиту на майбутні рейси.
+     Параметри: route_id (required), date_from, date_to
+     Відповідь (200 OK):
+
+     {
+          "route": {
+              "id": 1,
+              "origin_city": "Харків",
+              "destination_city": "Київ"
+          },
+          "forecasts": [
+              {
+                  "date": "2025-12-15",
+                  "day_of_week": "Monday",
+                  "predicted_passengers": 42,
+                  "confidence_interval": {
+                       "lower": 35,
+                       "upper": 49
+                  },
+                                                                         18
+            "trend_coefficient": 1.05,
+            "seasonality_coefficient": 1.00,
+            "recommendation": "normal",
+            "recommendation_details": "Очікується стандартна
+завантаженість"
+        }
+    ],
+    "algorithm": "moving_average_4w_trend_seasonality"
+}
+
+
+GET /api/analytics/profitability — аналітика рентабельності маршрутів.
+Параметри: route_id, date_from, date_to, group_by (day/week/month)
+Відповідь (200 OK):
+
+{
+    "period": {
+        "from": "2025-12-01",
+        "to": "2025-12-14"
+    },
+    "summary": {
+        "total_trips": 156,
+        "total_revenue": 234500.00,
+        "total_costs": 156300.00,
+        "total_profit": 78200.00,
+        "average_profitability": 50.03
+    },
+    "by_route": [
+        {
+            "route_id": 1,
+            "route_name": "Харків - Київ",
+            "trips_count": 42,
+            "total_passengers": 1680,
+            "avg_occupancy": 68.5,
+            "revenue": 75600.00,
+            "costs": 48200.00,
+            "profit": 27400.00,
+            "profitability": 56.85,
+            "category": "high_profit"
+        }
+    ]
+}
+
+
+GET /api/trips/{id}/analytics — аналітика конкретного рейсу.
+Відповідь (200 OK):
+
+{
+    "trip_id": 42,
+    "route": {
+        "id": 1,
+        "origin_city": "Харків",
+        "destination_city": "Київ"
+    },
+    "analytics": {
+        "total_passengers": 35,
+        "max_passengers": 42,
+                                                                                19
+               "avg_occupancy_rate": 70.0,
+               "revenue": 1800.00,
+               "costs": {
+                   "fuel_cost": 450.00,
+                   "driver_cost": 800.00,
+                   "other_costs": 150.00,
+                   "total": 1400.00
+               },
+               "profit": 400.00,
+               "profitability_percent": 28.57,
+               "calculated_at": "2025-12-15T18:30:00Z"
+          },
+          "events_summary": {
+              "total_events": 18,
+              "entry_events": 12,
+              "exit_events": 6
+          }
+     }
+
+
+     3.8.7 Модуль адміністрування
+
+Таблиця 3.7 – Ендпоінти модуля адміністрування
+Метод    Ендпоінт                              Роль         Опис
+GET      /api/admin/users                      admin        Список користувачів
+POST     /api/admin/users                      admin        Створення користувача
+PUT      /api/admin/users/{id}                 admin        Оновлення користувача
+PUT      /api/admin/users/{id}/role            admin        Зміна ролі
+GET      /api/admin/audit-logs                 admin        Журнал дій
+POST     /api/admin/backup                     tech_admin   Резервне копіювання
+
+     GET /api/admin/audit-logs — перегляд журналу дій користувачів.
+     Параметри: user_id, action, entity_type, date_from, date_to, page, limit
+     Відповідь (200 OK):
+
+     {
+          "logs": [
+              {
+                  "id": 1234,
+                  "user": {
+                      "id": 2,
+                      "email": "admin@busoptima.ua",
+                      "full_name": "Адміністратор"
+                  },
+                  "action": "UPDATE",
+                  "entity_type": "routes",
+                  "entity_id": 5,
+                  "old_values": {"base_price": 180.00},
+                  "new_values": {"base_price": 200.00},
+                  "ip_address": "192.168.1.100",
+                  "created_at": "2025-12-14T09:15:00Z"
+                                                                                     20
+              }
+          ],
+          "total": 1234,
+          "page": 1,
+          "limit": 20
+      }
+
+
+      3.9 Програмна реалізація API
+
+      Серверна частина реалізована на Go з використанням веб-фреймворку
+Fiber. Архітектура включає ініціалізацію залежностей через Dependency Injection,
+middleware для автентифікації та RBAC, handlers для обробки HTTP-запитів та
+services для бізнес-логіки.
+      Точка входу (main.go) виконує підключення до PostgreSQL з налаштуванням
+пулу з’єднань, ініціалізацію репозиторіїв та сервісів, реєстрацію middleware
+(recover, logger, CORS) та маршрутів API.
+      JWTAuth middleware перевіряє валідність токена, витягує claims (user_id,
+role, permissions) та встановлює їх у контекст. RequirePermission middleware
+перевіряє наявність необхідного дозволу для операції. AuditLog middleware записує
+модифікуючі дії (POST/PUT/DELETE) до журналу аудиту.
+      RouteHandler реалізує CRUD-операції з валідацією вхідних даних, перевіркою
+прав доступу та обробкою помилок. IoTHandler обробляє синхронізацію подій
+від пристроїв з пакетним збереженням через транзакції. ForecastService реалізує
+алгоритм прогнозування попиту з розрахунком коефіцієнтів тренду та сезонності.
+      Код серверної частини з документацією та обробкою помилок наведено у
+Додатку В.
+                                    ВИСНОВКИ
+
+
+      В результаті виконання лабораторної роботи розроблено серверну частину
+системи BusOptima. Спроєктовано архітектуру за принципами Clean Architecture
+з розділенням на шари handlers, services та repositories. Обґрунтовано вибір
+PostgreSQL як клієнт-серверної СУБД з підтримкою RBAC та партиціонування.
+      Створено схему бази даних з 14 таблицями, включаючи адміністративні (roles,
+permissions, audit_logs), бізнес-таблиці (routes, trips, passenger_events) та аналітичні
+(trip_analytics, demand_forecasts). Схему приведено до 3NF з детальним описом
+процесу нормалізації.
+                                                                          21
+     Розроблено REST API з 28 ендпоїнтами, згрупованими за модулями:
+автентифікація (3), IoT (3), маршрути (5), автобуси (5), рейси (6), аналітика
+(3), адміністрування (6). Реалізовано RBAC через систему ролей та дозволів
+з журналюванням дій у audit_logs. Програмну реалізацію виконано на Go з
+використанням Fiber та sqlx.
+                                                                               22
+                                  ДОДАТОК А
+                                    Відеозапис
+
+     Відеозапис: https://youtu.be/https://youtu.be/cIJt09aDSbk
+
+     Хронологічний опис:
+     0:00 — Вступ та представлення.
+     0:12 — Огляд ролей користувачів та типів авторизації.
+     0:21 — Авторизація та автентифікація IoT-пристрою.
+     0:47 — Запит на отримання конфігурації рейсу для IoT.
+     1:00 — Запит на синхронізацію подій входу-виходу пасажирів.
+     1:41 — Запит на надсилання рекомендації ціни на сервер.
+     2:06 — Авторизація під роллю адміністратора.
+     2:39 — Запит на список автобусів та їх фільтрація.
+     2:52 — Запит на створення нового автобуса.
+     3:14 — Запит на отримання автобуса за ID.
+     3:22 — Запит на оновлення даних автобуса за ID.
+     3:46 — Запит на список маршрутів та їх фільтрація.
+     3:58 — Запит на створення нового маршруту. 4:10 — Запит на отримання
+маршруту за ID.
+     4:17 — Запит на оновлення маршруту за ID.
+     4:33 — Запит на видалення маршруту за ID.
+     4:45 — Запит на список рейсів (фільтрація за маршрутом та датами).
+     5:18 — Запит на створення нового рейсу.
+     5:49 — Запит на отримання рейсу за ID та оновлення кількості пасажирів.
+     6:14 — Огляд розділу аналітики та подій пасажирів.
+                                         23
+            ДОДАТОК Б
+          Графічні матеріали
+
+
+
+
+Рисунок Б.7 – UML діаграма прецедентів
+                                              24
+
+
+
+
+   Рисунок Б.8 – ER діаграма бази даних
+
+
+
+
+Рисунок Б.9 – Діаграма структури бази даних
+                                                                                  25
+                                      ДОДАТОК В
+                                     Програмний код
+
+      Повний код проекту можна знайти в репозиторії GitHub за посиланням:
+https://github.com/NureOsychenkoIllia/ark-pzpi-23-3-osychenko-illia/tree/main/Lab2/
+ark-pzpi-23-3-osychenko-illia-lab2
+

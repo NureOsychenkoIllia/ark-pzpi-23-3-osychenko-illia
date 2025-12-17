@@ -30,16 +30,18 @@ type TripConfig struct {
 }
 
 type iotService struct {
-	deviceRepo repository.DeviceRepository
-	eventRepo  repository.PassengerEventRepository
-	tripRepo   repository.TripRepository
+	deviceRepo      repository.DeviceRepository
+	eventRepo       repository.PassengerEventRepository
+	tripRepo        repository.TripRepository
+	priceRecommRepo repository.PriceRecommendationRepository
 }
 
-func NewIoTService(deviceRepo repository.DeviceRepository, eventRepo repository.PassengerEventRepository, tripRepo repository.TripRepository) IoTService {
+func NewIoTService(deviceRepo repository.DeviceRepository, eventRepo repository.PassengerEventRepository, tripRepo repository.TripRepository, priceRecommRepo repository.PriceRecommendationRepository) IoTService {
 	return &iotService{
-		deviceRepo: deviceRepo,
-		eventRepo:  eventRepo,
-		tripRepo:   tripRepo,
+		deviceRepo:      deviceRepo,
+		eventRepo:       eventRepo,
+		tripRepo:        tripRepo,
+		priceRecommRepo: priceRecommRepo,
 	}
 }
 
@@ -87,7 +89,18 @@ func (s *iotService) SyncEvents(ctx context.Context, tripID int64, events []mode
 
 // SendPriceRecommendation зберігає рекомендацію ціни від IoT-пристрою
 func (s *iotService) SendPriceRecommendation(ctx context.Context, recommendation *model.PriceRecommendation) error {
-	// TODO: Implement price recommendation storage in price_recommendations table (Lab3)
+	// Перевіряємо, чи існує рейс
+	_, err := s.tripRepo.GetByID(ctx, recommendation.TripID)
+	if err != nil {
+		return fmt.Errorf("trip not found: %w", err)
+	}
+
+	// Зберігаємо рекомендацію ціни
+	err = s.priceRecommRepo.Create(ctx, recommendation)
+	if err != nil {
+		return fmt.Errorf("failed to save price recommendation: %w", err)
+	}
+
 	return nil
 }
 

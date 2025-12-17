@@ -27,7 +27,7 @@ func NewRouteHandler(routeService service.RouteService) *RouteHandler {
 //	@Produce		json
 //	@Param			active_only	query		bool	false	"Тільки активні маршрути"
 //	@Success		200			{array}		model.Route
-//	@Failure		500			{object}	map[string]string
+//	@Failure 500 {object} ErrorResponse
 //	@Security		BearerAuth
 //	@Router			/routes [get]
 func (h *RouteHandler) GetAll(c *fiber.Ctx) error {
@@ -50,8 +50,8 @@ func (h *RouteHandler) GetAll(c *fiber.Ctx) error {
 //	@Produce		json
 //	@Param			id	path		int	true	"ID маршруту"
 //	@Success		200	{object}	model.Route
-//	@Failure		400	{object}	map[string]string
-//	@Failure		404	{object}	map[string]string
+//	@Failure 400 {object} ErrorResponse
+//	@Failure 404 {object} ErrorResponse
 //	@Security		BearerAuth
 //	@Router			/routes/{id} [get]
 func (h *RouteHandler) GetByID(c *fiber.Ctx) error {
@@ -77,8 +77,8 @@ func (h *RouteHandler) GetByID(c *fiber.Ctx) error {
 //	@Produce		json
 //	@Param			route	body		model.Route	true	"Дані маршруту"
 //	@Success		201		{object}	model.Route
-//	@Failure		400		{object}	map[string]string
-//	@Failure		500		{object}	map[string]string
+//	@Failure 400 {object} ErrorResponse
+//	@Failure 500 {object} ErrorResponse
 //	@Security		BearerAuth
 //	@Router			/routes [post]
 func (h *RouteHandler) Create(c *fiber.Ctx) error {
@@ -106,8 +106,8 @@ func (h *RouteHandler) Create(c *fiber.Ctx) error {
 //	@Param			id		path		int			true	"ID маршруту"
 //	@Param			route	body		model.Route	true	"Оновлені дані маршруту"
 //	@Success		200		{object}	model.Route
-//	@Failure		400		{object}	map[string]string
-//	@Failure		500		{object}	map[string]string
+//	@Failure 400 {object} ErrorResponse
+//	@Failure 500 {object} ErrorResponse
 //	@Security		BearerAuth
 //	@Router			/routes/{id} [put]
 func (h *RouteHandler) Update(c *fiber.Ctx) error {
@@ -139,8 +139,8 @@ func (h *RouteHandler) Update(c *fiber.Ctx) error {
 //	@Produce		json
 //	@Param			id	path	int	true	"ID маршруту"
 //	@Success		204	"No Content"
-//	@Failure		400	{object}	map[string]string
-//	@Failure		500	{object}	map[string]string
+//	@Failure 400 {object} ErrorResponse
+//	@Failure 500 {object} ErrorResponse
 //	@Security		BearerAuth
 //	@Router			/routes/{id} [delete]
 func (h *RouteHandler) Delete(c *fiber.Ctx) error {

@@ -44,10 +44,46 @@ func JWTAuth(secret string) fiber.Handler {
 			})
 		}
 
-		// Встановлюємо дані користувача в контекст
-		c.Locals("user_id", int64(claims["user_id"].(float64)))
-		c.Locals("role", claims["role"].(string))
-		c.Locals("permissions", claims["permissions"])
+		// Перевіряємо тип токена
+		tokenType, hasType := claims["type"].(string)
+		if hasType && tokenType == "device" {
+			// Це токен пристрою
+			deviceID, ok := claims["device_id"].(float64)
+			if !ok {
+				return c.Status(401).JSON(fiber.Map{
+					"error": "Invalid device token claims",
+				})
+			}
+			serialNumber, ok := claims["serial_number"].(string)
+			if !ok {
+				return c.Status(401).JSON(fiber.Map{
+					"error": "Invalid device token claims",
+				})
+			}
+
+			c.Locals("device_id", int64(deviceID))
+			c.Locals("serial_number", serialNumber)
+			c.Locals("token_type", "device")
+		} else {
+			// Це токен користувача
+			userID, ok := claims["user_id"].(float64)
+			if !ok {
+				return c.Status(401).JSON(fiber.Map{
+					"error": "Invalid user token claims",
+				})
+			}
+			role, ok := claims["role"].(string)
+			if !ok {
+				return c.Status(401).JSON(fiber.Map{
+					"error": "Invalid user token claims",
+				})
+			}
+
+			c.Locals("user_id", int64(userID))
+			c.Locals("role", role)
+			c.Locals("permissions", claims["permissions"])
+			c.Locals("token_type", "user")
+		}
 
 		return c.Next()
 	}

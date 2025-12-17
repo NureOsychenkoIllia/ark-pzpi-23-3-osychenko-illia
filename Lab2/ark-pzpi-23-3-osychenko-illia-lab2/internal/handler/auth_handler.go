@@ -44,8 +44,8 @@ type RefreshTokenRequest struct {
 //	@Produce		json
 //	@Param			credentials	body		LoginRequest	true	"Облікові дані користувача"
 //	@Success		200			{object}	service.LoginResponse
-//	@Failure		400			{object}	map[string]string
-//	@Failure		401			{object}	map[string]string
+//	@Failure 400 {object} ErrorResponse
+//	@Failure 401 {object} ErrorResponse
 //	@Router			/auth/login [post]
 func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	var req LoginRequest
@@ -74,8 +74,8 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 //	@Produce		json
 //	@Param			device	body		DeviceAuthRequest	true	"Дані пристрою"
 //	@Success		200		{object}	service.DeviceAuthResponse
-//	@Failure		400		{object}	map[string]string
-//	@Failure		401		{object}	map[string]string
+//	@Failure 400 {object} ErrorResponse
+//	@Failure 401 {object} ErrorResponse
 //	@Router			/auth/device [post]
 func (h *AuthHandler) DeviceAuth(c *fiber.Ctx) error {
 	var req DeviceAuthRequest
@@ -104,8 +104,8 @@ func (h *AuthHandler) DeviceAuth(c *fiber.Ctx) error {
 //	@Produce		json
 //	@Param			refresh	body		RefreshTokenRequest	true	"Refresh токен"
 //	@Success		200		{object}	service.LoginResponse
-//	@Failure		400		{object}	map[string]string
-//	@Failure		401		{object}	map[string]string
+//	@Failure 400 {object} ErrorResponse
+//	@Failure 401 {object} ErrorResponse
 //	@Router			/auth/refresh [post]
 func (h *AuthHandler) RefreshToken(c *fiber.Ctx) error {
 	var req RefreshTokenRequest

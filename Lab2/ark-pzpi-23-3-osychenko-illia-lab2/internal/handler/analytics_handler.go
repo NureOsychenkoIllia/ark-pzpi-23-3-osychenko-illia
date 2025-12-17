@@ -21,12 +21,12 @@ func NewAnalyticsHandler(analyticsService service.AnalyticsService, forecastServ
 // GetDashboard повертає дані для дашборду
 //
 //	@Summary		Отримати дані дашборду
-//	@Description	Повертає основні метрики та статистику для дашборду
+//	@Description	Повертає основні метрики та статистику для інформаційної панелі
 //	@Tags			Analytics
 //	@Accept			json
 //	@Produce		json
 //	@Success		200	{object}	map[string]interface{}
-//	@Failure		500	{object}	map[string]string
+//	@Failure 500 {object} ErrorResponse
 //	@Security		BearerAuth
 //	@Router			/analytics/dashboard [get]
 func (h *AnalyticsHandler) GetDashboard(c *fiber.Ctx) error {
@@ -47,7 +47,7 @@ func (h *AnalyticsHandler) GetDashboard(c *fiber.Ctx) error {
 //	@Param			route_id	query		int		false	"ID маршруту для прогнозу"
 //	@Param			days		query		int		false	"Кількість днів для прогнозу"	default(7)
 //	@Success		200			{object}	map[string]interface{}
-//	@Failure		500			{object}	map[string]string
+//	@Failure 500 {object} ErrorResponse
 //	@Security		BearerAuth
 //	@Router			/analytics/forecast [get]
 func (h *AnalyticsHandler) GetForecast(c *fiber.Ctx) error {
@@ -86,7 +86,7 @@ func (h *AnalyticsHandler) GetForecast(c *fiber.Ctx) error {
 //	@Param			date_to		query		string	false	"Дата кінця періоду (YYYY-MM-DD)"
 //	@Param			route_id	query		int		false	"ID маршруту для фільтрації"
 //	@Success		200			{object}	map[string]interface{}
-//	@Failure		500			{object}	map[string]string
+//	@Failure 500 {object} ErrorResponse
 //	@Security		BearerAuth
 //	@Router			/analytics/profitability [get]
 func (h *AnalyticsHandler) GetProfitability(c *fiber.Ctx) error {

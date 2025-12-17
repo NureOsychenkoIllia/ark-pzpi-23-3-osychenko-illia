@@ -1,4 +1,4 @@
-//go:generate swag init -g main.go -o ../../docs
+// go:generate swag init -g main.go -o ../../docs
 
 // Package main BusOptima API Server
 //
@@ -57,16 +57,7 @@ func main() {
 	db.SetMaxIdleConns(5)
 
 	// Ініціалізація репозиторіїв
-	repos := &repository.Repositories{
-		User:      repository.NewUserRepository(db),
-		Route:     repository.NewRouteRepository(db),
-		Bus:       repository.NewBusRepository(db),
-		Device:    repository.NewDeviceRepository(db),
-		Trip:      repository.NewTripRepository(db),
-		Event:     repository.NewPassengerEventRepository(db),
-		Analytics: repository.NewAnalyticsRepository(db),
-		Audit:     repository.NewAuditLogRepository(db),
-	}
+	repos := repository.NewRepositories(db)
 
 	// Ініціалізація сервісів
 	services := &service.Services{
@@ -74,7 +65,7 @@ func main() {
 		Route:     service.NewRouteService(repos.Route, repos.Audit),
 		Bus:       service.NewBusService(repos.Bus, repos.Audit),
 		Trip:      service.NewTripService(repos.Trip, repos.Event, repos.Analytics, repos.Audit),
-		IoT:       service.NewIoTService(repos.Device, repos.Event, repos.Trip),
+		IoT:       service.NewIoTService(repos.Device, repos.Event, repos.Trip, repos.PriceRecommendation),
 		Analytics: service.NewAnalyticsService(repos.Analytics),
 		Forecast:  service.NewForecastService(repos.Analytics),
 	}

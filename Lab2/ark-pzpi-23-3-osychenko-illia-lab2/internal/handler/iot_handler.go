@@ -38,8 +38,8 @@ type SyncEventsRequest struct {
 //	@Produce		json
 //	@Param			events	body		SyncEventsRequest	true	"Події пасажирів"
 //	@Success		201		{object}	service.SyncEventsResponse
-//	@Failure		400		{object}	map[string]string
-//	@Failure		500		{object}	map[string]string
+//	@Failure		400		{object}	ErrorResponse
+//	@Failure		500		{object}	ErrorResponse
 //	@Security		BearerAuth
 //	@Router			/iot/events [post]
 func (h *IoTHandler) SyncEvents(c *fiber.Ctx) error {
@@ -75,6 +75,16 @@ func (h *IoTHandler) SyncEvents(c *fiber.Ctx) error {
 	return c.Status(201).JSON(response)
 }
 
+type PriceRecommendationRequest struct {
+	TripID            int64   `json:"trip_id" example:"1"`
+	BasePrice         float64 `json:"base_price" example:"500.00"`
+	RecommendedPrice  float64 `json:"recommended_price" example:"550.00"`
+	OccupancyRate     float64 `json:"occupancy_rate" example:"0.75"`
+	DemandCoefficient float64 `json:"demand_coefficient" example:"1.2"`
+	TimeCoefficient   float64 `json:"time_coefficient" example:"1.1"`
+	DayCoefficient    float64 `json:"day_coefficient" example:"1.0"`
+}
+
 // SendPriceRecommendation отримує рекомендацію ціни від IoT-пристрою
 //
 //	@Summary		Отримати рекомендацію ціни
@@ -82,12 +92,32 @@ func (h *IoTHandler) SyncEvents(c *fiber.Ctx) error {
 //	@Tags			IoT
 //	@Accept			json
 //	@Produce		json
-//	@Param			recommendation	body		map[string]interface{}	true	"Рекомендація ціни"
-//	@Success		200				{object}	map[string]string
-//	@Failure		400				{object}	map[string]string
+//	@Param			recommendation	body		PriceRecommendationRequest	true	"Рекомендація ціни"
+//	@Success		200				{object}	MessageResponse
+//	@Failure		400				{object}	ErrorResponse
+//	@Failure		500				{object}	ErrorResponse
 //	@Security		BearerAuth
 //	@Router			/iot/price [post]
 func (h *IoTHandler) SendPriceRecommendation(c *fiber.Ctx) error {
+	var req PriceRecommendationRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	recommendation := &model.PriceRecommendation{
+		TripID:           req.TripID,
+		BasePrice:        req.BasePrice,
+		RecommendedPrice: req.RecommendedPrice,
+		OccupancyRate:    req.OccupancyRate,
+		DemandCoeff:      req.DemandCoefficient,
+		TimeCoeff:        req.TimeCoefficient,
+		DayCoeff:         req.DayCoefficient,
+	}
+
+	if err := h.iotService.SendPriceRecommendation(c.Context(), recommendation); err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+
 	return c.JSON(fiber.Map{"message": "Price recommendation received"})
 }
 
@@ -99,9 +129,9 @@ func (h *IoTHandler) SendPriceRecommendation(c *fiber.Ctx) error {
 //	@Accept			json
 //	@Produce		json
 //	@Param			tripId	path		int	true	"ID рейсу"
-//	@Success		200		{object}	map[string]interface{}
-//	@Failure		400		{object}	map[string]string
-//	@Failure		404		{object}	map[string]string
+//	@Success		200		{object}	service.TripConfig
+//	@Failure		400		{object}	ErrorResponse
+//	@Failure		404		{object}	ErrorResponse
 //	@Security		BearerAuth
 //	@Router			/iot/config/{tripId} [get]
 func (h *IoTHandler) GetTripConfig(c *fiber.Ctx) error {
