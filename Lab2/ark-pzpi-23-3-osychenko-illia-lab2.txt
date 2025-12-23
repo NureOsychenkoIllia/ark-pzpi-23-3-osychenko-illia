@@ -724,7 +724,7 @@ permissions, audit_logs), бізнес-таблиці (routes, trips, passenger_
                                   ДОДАТОК А
                                     Відеозапис
 
-     Відеозапис: https://youtu.be/https://youtu.be/cIJt09aDSbk
+     Відеозапис: https://youtu.be/cIJt09aDSbk
 
      Хронологічний опис:
      0:00 — Вступ та представлення.
