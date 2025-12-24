@@ -87,6 +87,9 @@ func (s *forecastService) calculateForecast(routeID int64, targetDate time.Time,
 	confidenceLower := int(math.Max(0, predicted-1.96*stdDev))
 	confidenceUpper := int(predicted + 1.96*stdDev)
 
+	// fmt.Printf("DEBUG: RouteID=%d, Date=%s, Historical=%v, MovingAvg=%.2f, Trend=%.2f, Season=%.2f, Predicted=%.2f\n",
+	//	routeID, targetDate.Format("2006-01-02"), historical, movingAvg, trendCoeff, seasonCoeff, predicted)
+
 	return model.DemandForecast{
 		RouteID:             routeID,
 		ForecastDate:        targetDate,
@@ -107,10 +110,20 @@ func (s *forecastService) calculateMovingAverage(data []int, weeks int) float64 
 
 	count := min(weeks, len(data))
 	sum := 0
+	validCount := 0
+
 	for i := 0; i < count; i++ {
-		sum += data[i]
+		if data[i] > 0 { // враховуємо тільки позитивні значення
+			sum += data[i]
+			validCount++
+		}
 	}
-	return float64(sum) / float64(count)
+
+	if validCount == 0 {
+		return 30.0 // значення за замовчуванням якщо немає валідних даних
+	}
+
+	return float64(sum) / float64(validCount)
 }
 
 // calculateTrendCoefficient обчислює коефіцієнт тренду

@@ -118,7 +118,7 @@ func (h *IoTHandler) SendPriceRecommendation(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	return c.JSON(fiber.Map{"message": "Price recommendation received"})
+	return c.JSON(MessageResponse{Message: "Price recommendation received"})
 }
 
 // GetTripConfig повертає конфігурацію рейсу для IoT-пристрою

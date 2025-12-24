@@ -11,4 +11,6 @@ type Services struct {
 	Forecast  ForecastService
 	Pricing   PricingService
 	Settings  SettingsService
+	Backup    BackupService
+	Audit     AuditService
 }

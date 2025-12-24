@@ -11,12 +11,16 @@ import (
 type AdminHandler struct {
 	authService     service.AuthService
 	settingsService service.SettingsService
+	backupService   service.BackupService
+	auditService    service.AuditService
 }
 
-func NewAdminHandler(authService service.AuthService, settingsService service.SettingsService) *AdminHandler {
+func NewAdminHandler(authService service.AuthService, settingsService service.SettingsService, backupService service.BackupService, auditService service.AuditService) *AdminHandler {
 	return &AdminHandler{
 		authService:     authService,
 		settingsService: settingsService,
+		backupService:   backupService,
+		auditService:    auditService,
 	}
 }
 
@@ -131,7 +135,7 @@ type UpdateUserRoleRequest struct {
 //	@Produce		json
 //	@Param			id		path		int						true	"ID користувача"
 //	@Param			role	body		UpdateUserRoleRequest	true	"Нова роль користувача"
-//	@Success		200		{object}	map[string]string
+//	@Success		200		{object}	UpdateUserRoleResponse
 //	@Failure 400 {object} ErrorResponse
 //	@Failure 500 {object} ErrorResponse
 //	@Security		BearerAuth
@@ -152,7 +156,9 @@ func (h *AdminHandler) UpdateUserRole(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	return c.JSON(fiber.Map{"message": "User role updated successfully"})
+	return c.JSON(UpdateUserRoleResponse{
+		Message: "User role updated successfully",
+	})
 }
 
 // GetAuditLogs повертає журнал аудиту
@@ -164,55 +170,145 @@ func (h *AdminHandler) UpdateUserRole(c *fiber.Ctx) error {
 //	@Produce		json
 //	@Param			page	query		int	false	"Номер сторінки"	default(1)
 //	@Param			limit	query		int	false	"Кількість записів на сторінці"	default(20)
-//	@Success		200		{object}	map[string]interface{}
+//	@Success		200		{object}	AuditLogsResponse
 //	@Failure 500 {object} ErrorResponse
 //	@Security		BearerAuth
 //	@Router			/admin/audit-logs [get]
 func (h *AdminHandler) GetAuditLogs(c *fiber.Ctx) error {
-	// TODO: Parse query parameters and call auditService.GetAuditLogs
-	// Demo response with audit logs
-	return c.JSON(fiber.Map{
-		"logs": []fiber.Map{
-			{
-				"id": 1234,
-				"user": fiber.Map{
-					"id":        2,
-					"email":     "admin@busoptima.ua",
-					"full_name": "Адміністратор",
-				},
-				"action":      "UPDATE",
-				"entity_type": "routes",
-				"entity_id":   5,
-				"old_values":  fiber.Map{"base_price": 180.00},
-				"new_values":  fiber.Map{"base_price": 200.00},
-				"ip_address":  "192.168.1.100",
-				"created_at":  "2025-12-14T09:15:00Z",
-			},
-		},
-		"total": 1234,
-		"page":  1,
-		"limit": 20,
+	// Parse query parameters
+	filters := make(map[string]any)
+
+	// Page and limit for pagination
+	page := c.QueryInt("page", 1)
+	limit := c.QueryInt("limit", 20)
+
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+
+	offset := (page - 1) * limit
+	filters["limit"] = limit
+	filters["offset"] = offset
+
+	// Optional filters
+	if userID := c.QueryInt("user_id", 0); userID > 0 {
+		filters["user_id"] = int64(userID)
+	}
+
+	if action := c.Query("action"); action != "" {
+		filters["action"] = action
+	}
+
+	if entityType := c.Query("entity_type"); entityType != "" {
+		filters["entity_type"] = entityType
+	}
+
+	if dateFrom := c.Query("date_from"); dateFrom != "" {
+		filters["date_from"] = dateFrom
+	}
+
+	if dateTo := c.Query("date_to"); dateTo != "" {
+		filters["date_to"] = dateTo
+	}
+
+	logs, err := h.auditService.GetAuditLogs(c.Context(), filters)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	// Get total count (without pagination filters)
+	countFilters := make(map[string]any)
+	for k, v := range filters {
+		if k != "limit" && k != "offset" {
+			countFilters[k] = v
+		}
+	}
+
+	total, err := h.auditService.GetAuditLogsCount(c.Context(), countFilters)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(AuditLogsResponse{
+		Logs:  logs,
+		Total: total,
+		Page:  page,
+		Limit: limit,
 	})
 }
 
-// CreateBackup створює резервну копію
-//
-//	@Summary		Створити резервну копію
-//	@Description	Створює резервну копію бази даних
-//	@Tags			Admin
-//	@Accept			json
-//	@Produce		json
-//	@Success		200	{object}	map[string]interface{}
-//	@Failure 500 {object} ErrorResponse
-//	@Security		BearerAuth
-//	@Router			/admin/backup [post]
-func (h *AdminHandler) CreateBackup(c *fiber.Ctx) error {
-	return c.JSON(fiber.Map{
-		"message":    "Backup created successfully",
-		"backup_id":  "backup_20251215_081530",
-		"created_at": "2025-12-15T08:15:30Z",
-	})
-}
+// // CreateBackup створює резервну копію
+// //
+// //	@Summary		Створити резервну копію
+// //	@Description	Створює резервну копію бази даних
+// //	@Tags			Admin
+// //	@Accept			json
+// //	@Produce		json
+// //	@Success		200	{object}	service.BackupInfo
+// //	@Failure 500 {object} ErrorResponse
+// //	@Security		BearerAuth
+// //	@Router			/admin/backup [post]
+// func (h *AdminHandler) CreateBackup(c *fiber.Ctx) error {
+// 	backup, err := h.backupService.CreateBackup(c.Context())
+// 	if err != nil {
+// 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+// 	}
+
+// 	return c.JSON(backup)
+// }
+
+// // ListBackups повертає список резервних копій
+// //
+// //	@Summary		Список резервних копій
+// //	@Description	Повертає список всіх резервних копій
+// //	@Tags			Admin
+// //	@Accept			json
+// //	@Produce		json
+// //	@Success		200	{array}	service.BackupInfo
+// //	@Failure 500 {object} ErrorResponse
+// //	@Security		BearerAuth
+// //	@Router			/admin/backups [get]
+// func (h *AdminHandler) ListBackups(c *fiber.Ctx) error {
+// 	backups, err := h.backupService.ListBackups(c.Context())
+// 	if err != nil {
+// 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+// 	}
+
+// 	return c.JSON(backups)
+// }
+
+// // RestoreBackup відновлює базу даних з резервної копії
+// //
+// //	@Summary		Відновити з резервної копії
+// //	@Description	Відновлює базу даних з вказаної резервної копії
+// //	@Tags			Admin
+// //	@Accept			json
+// //	@Produce		json
+// //	@Param			backup_id	path		string	true	"ID резервної копії"
+// //	@Success		200			{object}	map[string]interface{}
+// //	@Failure 400 {object} ErrorResponse
+// //	@Failure 500 {object} ErrorResponse
+// //	@Security		BearerAuth
+// //	@Router			/admin/backups/{backup_id}/restore [post]
+// func (h *AdminHandler) RestoreBackup(c *fiber.Ctx) error {
+// 	backupID := c.Params("backup_id")
+// 	if backupID == "" {
+// 		return c.Status(400).JSON(fiber.Map{"error": "backup_id is required"})
+// 	}
+
+// 	if err := h.backupService.RestoreBackup(c.Context(), backupID); err != nil {
+// 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+// 	}
+
+// 	return c.JSON(fiber.Map{
+// 		"message":     "Database restored successfully",
+// 		"backup_id":   backupID,
+// 		"restored_at": time.Now(),
+// 	})
+// }
 
 // GetSystemSettings повертає поточні системні налаштування
 //
@@ -221,7 +317,7 @@ func (h *AdminHandler) CreateBackup(c *fiber.Ctx) error {
 //	@Tags			Admin
 //	@Accept			json
 //	@Produce		json
-//	@Success		200	{object}	model.SystemSettings
+//	@Success		200	{object}	SystemSettingsResponse
 //	@Failure 500 {object} ErrorResponse
 //	@Security		BearerAuth
 //	@Router			/admin/settings [get]
@@ -231,19 +327,48 @@ func (h *AdminHandler) GetSystemSettings(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	return c.JSON(settings)
+	// Конвертуємо модель в структуру відповіді
+	settingsResponse := &SystemSettingsResponse{
+		ID:                   settings.ID,
+		FuelPricePerLiter:    settings.FuelPricePerLiter,
+		PeakHoursCoefficient: settings.PeakHoursCoefficient,
+		WeekendCoefficient:   settings.WeekendCoefficient,
+		HighDemandThreshold:  settings.HighDemandThreshold,
+		LowDemandThreshold:   settings.LowDemandThreshold,
+		PriceMinCoefficient:  settings.PriceMinCoefficient,
+		PriceMaxCoefficient:  settings.PriceMaxCoefficient,
+		SeasonalCoefficients: SeasonalCoefficients{
+			Spring: settings.SeasonalCoefficients["spring"],
+			Summer: settings.SeasonalCoefficients["summer"],
+			Autumn: settings.SeasonalCoefficients["autumn"],
+			Winter: settings.SeasonalCoefficients["winter"],
+		},
+		UpdatedAt:     settings.UpdatedAt,
+		UpdatedBy:     settings.UpdatedBy,
+		UpdatedByUser: settings.UpdatedByUser,
+	}
+
+	return c.JSON(settingsResponse)
+}
+
+// SeasonalCoefficients represents seasonal pricing coefficients
+type SeasonalCoefficients struct {
+	Spring float64 `json:"spring" example:"1.0"`
+	Summer float64 `json:"summer" example:"1.2"`
+	Autumn float64 `json:"autumn" example:"1.1"`
+	Winter float64 `json:"winter" example:"0.9"`
 }
 
 // UpdateSystemSettingsRequest структура запиту оновлення налаштувань
 type UpdateSystemSettingsRequest struct {
-	FuelPricePerLiter    float64            `json:"fuel_price_per_liter" validate:"required,min=10,max=200"`
-	PeakHoursCoefficient float64            `json:"peak_hours_coefficient" validate:"required,min=0.5,max=3.0"`
-	WeekendCoefficient   float64            `json:"weekend_coefficient" validate:"required,min=0.5,max=3.0"`
-	HighDemandThreshold  int                `json:"high_demand_threshold" validate:"required,min=0,max=100"`
-	LowDemandThreshold   int                `json:"low_demand_threshold" validate:"required,min=0,max=100"`
-	PriceMinCoefficient  float64            `json:"price_min_coefficient" validate:"required,min=0.1,max=1.0"`
-	PriceMaxCoefficient  float64            `json:"price_max_coefficient" validate:"required,min=1.0,max=5.0"`
-	SeasonalCoefficients map[string]float64 `json:"seasonal_coefficients" validate:"required"`
+	FuelPricePerLiter    float64              `json:"fuel_price_per_liter" validate:"required,min=10,max=200"`
+	PeakHoursCoefficient float64              `json:"peak_hours_coefficient" validate:"required,min=0.5,max=3.0"`
+	WeekendCoefficient   float64              `json:"weekend_coefficient" validate:"required,min=0.5,max=3.0"`
+	HighDemandThreshold  int                  `json:"high_demand_threshold" validate:"required,min=0,max=100"`
+	LowDemandThreshold   int                  `json:"low_demand_threshold" validate:"required,min=0,max=100"`
+	PriceMinCoefficient  float64              `json:"price_min_coefficient" validate:"required,min=0.1,max=1.0"`
+	PriceMaxCoefficient  float64              `json:"price_max_coefficient" validate:"required,min=1.0,max=5.0"`
+	SeasonalCoefficients SeasonalCoefficients `json:"seasonal_coefficients" validate:"required"`
 }
 
 // UpdateSystemSettings оновлює системні налаштування
@@ -254,7 +379,7 @@ type UpdateSystemSettingsRequest struct {
 //	@Accept			json
 //	@Produce		json
 //	@Param			settings	body		UpdateSystemSettingsRequest	true	"Нові налаштування"
-//	@Success		200			{object}	map[string]interface{}
+//	@Success		200			{object}	UpdateSystemSettingsResponse
 //	@Failure 400 {object} ErrorResponse
 //	@Failure 500 {object} ErrorResponse
 //	@Security		BearerAuth
@@ -280,16 +405,42 @@ func (h *AdminHandler) UpdateSystemSettings(c *fiber.Ctx) error {
 		LowDemandThreshold:   req.LowDemandThreshold,
 		PriceMinCoefficient:  req.PriceMinCoefficient,
 		PriceMaxCoefficient:  req.PriceMaxCoefficient,
-		SeasonalCoefficients: req.SeasonalCoefficients,
+		SeasonalCoefficients: map[string]float64{
+			"spring": req.SeasonalCoefficients.Spring,
+			"summer": req.SeasonalCoefficients.Summer,
+			"autumn": req.SeasonalCoefficients.Autumn,
+			"winter": req.SeasonalCoefficients.Winter,
+		},
 	}
 
 	if err := h.settingsService.UpdateSettings(c.Context(), settings, userID); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	return c.JSON(fiber.Map{
-		"message":    "System settings updated successfully",
-		"settings":   settings,
-		"updated_at": settings.UpdatedAt,
+	// Конвертуємо модель в структуру відповіді
+	settingsResponse := &SystemSettingsResponse{
+		ID:                   settings.ID,
+		FuelPricePerLiter:    settings.FuelPricePerLiter,
+		PeakHoursCoefficient: settings.PeakHoursCoefficient,
+		WeekendCoefficient:   settings.WeekendCoefficient,
+		HighDemandThreshold:  settings.HighDemandThreshold,
+		LowDemandThreshold:   settings.LowDemandThreshold,
+		PriceMinCoefficient:  settings.PriceMinCoefficient,
+		PriceMaxCoefficient:  settings.PriceMaxCoefficient,
+		SeasonalCoefficients: SeasonalCoefficients{
+			Spring: settings.SeasonalCoefficients["spring"],
+			Summer: settings.SeasonalCoefficients["summer"],
+			Autumn: settings.SeasonalCoefficients["autumn"],
+			Winter: settings.SeasonalCoefficients["winter"],
+		},
+		UpdatedAt:     settings.UpdatedAt,
+		UpdatedBy:     settings.UpdatedBy,
+		UpdatedByUser: settings.UpdatedByUser,
+	}
+
+	return c.JSON(UpdateSystemSettingsResponse{
+		Message:   "System settings updated successfully",
+		Settings:  settingsResponse,
+		UpdatedAt: &settings.UpdatedAt,
 	})
 }

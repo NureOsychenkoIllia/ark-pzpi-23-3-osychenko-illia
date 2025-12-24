@@ -111,8 +111,8 @@ INSERT INTO price_recommendations (trip_id, base_price, recommended_price, occup
 
 -- Аналітика рейсів
 INSERT INTO trip_analytics (trip_id, total_passengers, max_passengers, avg_occupancy_rate, revenue, fuel_cost, driver_cost, other_costs, profit, profitability_percent) VALUES
-    (1, 142, 35, 0.70, 3550.00, 1200.25, 800.00, 150.00, 1399.75, 39.43),
-    (3, 98, 32, 0.64, 2940.00, 1087.50, 900.00, 120.00, 832.50, 28.32);
+    (1, 35, 50, 70.0, 5250.00, 1200.25, 800.00, 150.00, 3099.75, 144.18),
+    (3, 32, 45, 71.1, 5760.00, 1087.50, 900.00, 120.00, 3652.50, 173.34);
 
 -- Прогнози попиту
 INSERT INTO demand_forecasts (route_id, forecast_date, day_of_week, predicted_passengers, confidence_lower, confidence_upper, actual_passengers) VALUES

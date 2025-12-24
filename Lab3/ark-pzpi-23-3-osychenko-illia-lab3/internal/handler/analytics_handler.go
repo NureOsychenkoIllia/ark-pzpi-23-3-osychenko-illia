@@ -48,7 +48,7 @@ func (h *AnalyticsHandler) GetDashboard(c *fiber.Ctx) error {
 //	@Produce		json
 //	@Param			route_id	query		int		true	"ID маршруту для прогнозу"
 //	@Param			date		query		string	false	"Дата прогнозу (YYYY-MM-DD)"
-//	@Success		200			{object}	service.ForecastResponse
+//	@Success		200			{object}	ForecastResponse
 //	@Failure		400			{object}	ErrorResponse
 //	@Failure		500			{object}	ErrorResponse
 //	@Security		BearerAuth
@@ -80,24 +80,26 @@ func (h *AnalyticsHandler) GetForecast(c *fiber.Ctx) error {
 	}
 
 	// Додаємо рекомендацію на основі прогнозу
-	response := fiber.Map{
-		"route":     forecast.Route,
-		"algorithm": forecast.Algorithm,
-		"forecasts": make([]fiber.Map, len(forecast.Forecasts)),
-	}
+	forecastItems := make([]ForecastItem, len(forecast.Forecasts))
 
 	for i, f := range forecast.Forecasts {
 		recommendation, details := generateRecommendation(f.PredictedPassengers, 50) // 50 - типова місткість
-		response["forecasts"].([]fiber.Map)[i] = fiber.Map{
-			"date":                   f.ForecastDate.Format("2006-01-02"),
-			"day_of_week":            dayOfWeekName(f.DayOfWeek),
-			"predicted_passengers":   f.PredictedPassengers,
-			"confidence_interval":    fiber.Map{"lower": f.ConfidenceLower, "upper": f.ConfidenceUpper},
-			"trend_coefficient":      f.TrendCoefficient,
-			"season_coefficient":     f.SeasonCoefficient,
-			"recommendation":         recommendation,
-			"recommendation_details": details,
+		forecastItems[i] = ForecastItem{
+			Date:                 f.ForecastDate.Format("2006-01-02"),
+			DayOfWeek:            dayOfWeekName(f.DayOfWeek),
+			PredictedPassengers:  f.PredictedPassengers,
+			ConfidenceInterval:   ConfidenceInterval{Lower: f.ConfidenceLower, Upper: f.ConfidenceUpper},
+			TrendCoefficient:     f.TrendCoefficient,
+			SeasonCoefficient:    f.SeasonCoefficient,
+			Recommendation:       recommendation,
+			RecommendationDetail: details,
 		}
+	}
+
+	response := ForecastResponse{
+		Route:     forecast.Route,
+		Algorithm: forecast.Algorithm,
+		Forecasts: forecastItems,
 	}
 
 	return c.JSON(response)
