@@ -1,0 +1,21 @@
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+
+# IDE
+.vscode/
+.idea/
+
+# Build
+build/
+*.o
+*.a
+*.so
+*.elf
+*.bin
+*.hex
+
+# OS
+.DS_Store
+Thumbs.db
