@@ -1,0 +1,19 @@
+[wokwi]
+version = 1
+firmware = ".pio/build/esp32dev/firmware.bin"
+elf = ".pio/build/esp32dev/firmware.elf"
+
+# Flash пам'ять для LittleFS
+flash = ".pio/build/esp32dev/littlefs.bin"
+
+# Serial port forwarding для моніторингу
+rfc2217ServerPort = 4000
+
+# IoT Gateway для WiFi підключення
+[net]
+enable = true
+
+# Прокидання порту для тестування HTTP
+[[net.forward]]
+from = "localhost:8070"
+to = "target:80"

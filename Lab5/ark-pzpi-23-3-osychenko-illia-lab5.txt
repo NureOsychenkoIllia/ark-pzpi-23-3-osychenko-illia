@@ -1,0 +1,828 @@
+                    МІНІСТЕРСТВО ОСВІТИ І НАУКИ УКРАЇНИ
+   ХАРКІВСЬКИЙ НАЦІОНАЛЬНИЙ УНІВЕРСИТЕТ РАДІОЕЛЕКТРОНІКИ
+
+
+
+                           Кафедра Програмної інженерії
+
+
+
+
+                                        Звіт
+                             з лабораторної роботи №5
+                     з дисципліни: «Аналіз та рефакторинґ коду»
+       з теми: «Розгортання програмної системи та демонстрація її роботи»
+
+
+
+
+Виконав:                                                               Перевірив:
+ст. гр. ПЗПІ-23-3                                          ст. викладач катедри ПІ
+Осиченко І. О.                                                      Сокорчук І. П.
+
+
+
+
+                                   Харків – 2025
+                                                                              2
+                               1 ІСТОРІЯ ЗМІН
+
+№    Дата    Версія звіту    Опис змін та виправлень
+1 26.12.2025     0.1         Створено розділ «Завдання»
+2 26.12.2025     0.2         Створено розділ «Опис виконаної роботи»
+3 26.12.2025     1.0         Завершено роботу над звітом
+
+
+
+                                2 ЗАВДАННЯ
+
+
+     Розгорнути створену програмну систему BusOptima з використанням Docker.
+Налаштувати середовище для роботи серверної частини, бази даних та IoT клієнта.
+Перевірити стабільність та коректність роботи всіх компонентів. Продемонструвати
+функціональність системи відповідно до Vision & Scope та створити відеозапис
+демонстрації.
+                                                                                 3
+                        3 ОПИС ВИКОНАНОЇ РОБОТИ
+
+      3.1 Архітектура розгортання
+
+      Система BusOptima складається з трьох основних компонентів: серверна
+частина (Go REST API), база даних PostgreSQL та IoT клієнт на ESP32. Розгортання
+виконується через Docker Compose для серверної інфраструктури та PlatformIO для
+IoT клієнта.
+
+Таблиця 3.1 – Компоненти системи
+Компонент      Технологія                                                    Порт
+API сервер     Go 1.25 + Fiber                                               8080
+База даних     PostgreSQL 17                                                 5432
+Adminer        PHP веб-інтерфейс                                             8081
+IoT клієнт     ESP32 + Arduino                                               —
+
+      3.2 Розгортання серверної частини
+
+      3.2.1 Docker Compose конфігурація
+
+      Серверна інфраструктура розгортається через docker-compose.yml з трьома
+сервісами: postgres для бази даних, api для REST API та adminer для адміністрування
+БД.
+
+ 1 services:
+ 2   postgres:
+ 3     image: postgres:17-alpine
+ 4     container_name: busoptima_db
+ 5     environment:
+ 6        POSTGRES_DB: busoptima
+ 7        POSTGRES_USER: busoptima_user
+ 8        POSTGRES_PASSWORD: busoptima_pass
+ 9     ports:
+10        - "5432:5432"
+11     volumes:
+12        - postgres_data:/var/lib/postgresql/data
+13        - ./migrations:/docker-entrypoint-initdb.d
+14     networks:
+15        - busoptima_network
+16
+17   api:
+18     build: .
+19     container_name: busoptima_api
+20     environment:
+                                                                                  4
+
+21         DATABASE_URL: postgres://busoptima_user:busoptima_pass@postgres:
+     5432/busoptima?sslmode=disable
+22         JWT_SECRET: super-secret-jwt-key
+23         PORT: 8080
+24       ports:
+25         - "0.0.0.0:8080:8080"
+26       volumes:
+27         - backup_data:/app/backups
+28       depends_on:
+29         - postgres
+30       networks:
+31         - busoptima_network
+32       restart: unless-stopped
+
+
+      PostgreSQL контейнер автоматично виконує SQL-міграції з директорії
+migrations при першому запуску. API контейнер збирається з Dockerfile та
+підключається до бази даних через внутрішню Docker мережу.
+
+      3.2.2 Dockerfile серверної частини
+
+      Збірка API виконується у два етапи (multi-stage build) для мінімізації розміру
+фінального образу:
+
+ 1   FROM golang:1.25-alpine AS builder
+ 2   WORKDIR /app
+ 3   COPY go.mod go.sum ./
+ 4   RUN go mod download
+ 5   RUN go install github.com/swaggo/swag/cmd/swag@latest
+ 6   COPY . .
+ 7   RUN swag init -g cmd/api/main.go
+ 8   RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./
+     cmd/api
+ 9
+10   FROM alpine:latest
+11   RUN apk --no-cache add ca-certificates
+12   WORKDIR /root/
+13   COPY --from=builder /app/main .
+14   EXPOSE 8080
+15   CMD ["./main"]
+
+
+      Перший етап (builder) завантажує залежності, генерує Swagger документацію
+та компілює бінарний файл. Другий етап копіює лише скомпільований бінарник в
+мінімальний Alpine образ.
+
+      3.2.3 Makefile для автоматизації
+
+      Makefile надає команди для типових операцій розгортання та розробки:
+                                                                                   5
+
+ 1 docker-up: ## Запустити всі сервіси через Docker Compose
+ 2   @$(DOCKER_COMPOSE) up -d
+ 3
+ 4 docker-down: ## Зупинити всі Docker сервіси
+ 5   @$(DOCKER_COMPOSE) down
+ 6
+ 7 migrate-up: ## Застосувати міграції БД
+ 8   @docker exec -i busoptima_db psql -U busoptima_user -d busoptima <
+   migrations/001_initial_schema.sql
+ 9   @docker exec -i busoptima_db psql -U busoptima_user -d busoptima <
+   migrations/002_initial_data.sql
+10
+11 quickstart: deps docker-up migrate-up ## Швидкий старт проекту
+12   @echo "Проект готовий до використання!"
+
+
+     Команда «make quickstart» виконує повне розгортання системи: встановлення
+залежностей, запуск Docker контейнерів та застосування міграцій бази даних.
+
+     3.3 Налаштування бази даних
+
+     3.3.1 Структура міграцій
+
+     Міграції бази даних організовані у послідовні SQL-файли:
+      –   001_initial_schema.sql — створення таблиць (users, roles, routes, buses,
+          trips, devices)
+      –   002_initial_data.sql — початкові дані (ролі, дозволи, тестові користувачі)
+      –   003_system_settings.sql — таблиця системних налаштувань
+      –   004_add_passenger_events.sql — таблиці для подій пасажирів та аналітики
+      –   005_rich_demo_data.sql — демонстраційні дані для тестування
+
+     3.3.2 ER-діаграма бази даних
+
+     База даних містить 12 основних таблиць (див. рис. Б.1): users та roles
+для автентифікації, routes та buses для управління маршрутами та автобусами,
+trips для рейсів, devices для IoT пристроїв, passenger_events для подій пасажирів,
+price_recommendations для рекомендацій цін, trip_analytics та demand_forecasts для
+аналітики, system_settings для конфігурації, audit_logs для журналу аудиту.
+                                                                              6
+      3.4 Розгортання IoT клієнта
+
+      3.4.1 PlatformIO конфігурація
+
+      IoT клієнт розгортається через PlatformIO з конфігурацією для ESP32:
+
+1   [env:esp32dev]
+2   platform = espressif32
+3   board = esp32dev
+4   framework = arduino
+5   monitor_speed = 115200
+6   lib_deps =
+7       bblanchon/ArduinoJson@^7.0.0
+8       marcoschwartz/LiquidCrystal_I2C@^1.1.4
+
+
+      Залежності     включають      ArduinoJson   для   серіалізації   JSON   та
+LiquidCrystal_I2C для роботи з LCD-дисплеєм.
+
+      3.4.2 Wokwi симуляція
+
+      Для тестування без фізичного обладнання використовується симулятор
+Wokwi. Конфігурація wokwi.toml:
+
+1   [wokwi]
+2   version = 1
+3   firmware = ".pio/build/esp32dev/firmware.bin"
+4   elf = ".pio/build/esp32dev/firmware.elf"
+5
+6   [[net.forward]]
+7   from = "localhost:8080"
+8   to = "host:8080"
+
+
+      Wokwi IoT Gateway забезпечує віртуальне WiFi-підключення симульованого
+ESP32 до локальної мережі для тестування HTTP-комунікації з реальним сервером.
+
+      3.4.3 Налаштування мережі IoT
+
+      Конфігурація мережевих параметрів IoT клієнта в config.h:
+
+1   #define   WIFI_SSID "Wokwi-GUEST"
+2   #define   WIFI_PASSWORD ""
+3   #define   SERVER_HOST "busoptima-api.example.com"
+4   #define   SERVER_PORT 443
+5   #define   API_BASE_PATH "/api/iot"
+6   #define   DEVICE_TOKEN "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                                                                        7
+      Для production середовища необхідно змінити WIFI_SSID, WIFI_PASSWORD
+та SERVER_HOST на реальні значення.
+
+      3.5 Перевірка роботи системи
+
+      3.5.1 Тестування серверної частини
+
+      Перевірка стабільності API виконується через HTTP-запити до основних
+ендпоінтів:
+
+ 1   # Автентифікація
+ 2   curl -X POST http://localhost:8080/api/auth/login \
+ 3     -H "Content-Type: application/json" \
+ 4     -d '{"email":"admin@busoptima.ua","password":"password123"}'
+ 5
+ 6   # Отримання маршрутів
+ 7   curl -X GET http://localhost:8080/api/routes \
+ 8     -H "Authorization: Bearer <token>"
+ 9
+10   # Панель аналітики
+11   curl -X GET http://localhost:8080/api/analytics/dashboard \
+12     -H "Authorization: Bearer <token>"
+
+
+      3.5.2 Тестування IoT клієнта
+
+      Перевірка IoT клієнта включає:
+       –   Підключення до WiFi мережі (індикація LED_WIFI)
+       –   Автентифікація на сервері через /api/auth/device
+       –   Отримання конфігурації рейсу через /api/iot/config
+       –   Симуляція спрацювання PIR-датчиків
+       –   Синхронізація подій з сервером через /api/iot/events
+       –   Відправка рекомендацій ціни через /api/iot/price
+
+      3.5.3 Перевірка взаємодії компонентів
+
+      Інтеграційне тестування перевіряє повний цикл обробки даних:
+      а)   IoT пристрій фіксує вхід пасажира через PIR-датчик
+      б)   Подія зберігається в локальному буфері EventBuffer
+      в)   При синхронізації подія відправляється на сервер
+      г)   Сервер зберігає подію в таблиці passenger_events
+                                                                                         8
+     д)          Аналітичний модуль оновлює trip_analytics
+     е)          Диспетчер бачить оновлені дані на панелі моніторингу
+
+     3.6 Демонстрація функціональності
+
+     3.6.1 Бізнес-логіка системи (MF-1 — MF-5)
+
+     Відповідно до Vision & Scope, система реалізує шість основних функцій:
+     MF-1: Автоматичний підрахунок пасажирів — IoT пристрій фіксує вхід/вихід
+через PIR-датчики з debounce-механізмом 500 мс (див. рис. Б.6). Кожна подія
+зберігається з міткою часу та GPS-координатами.
+     MF-2: Локальне динамічне ціноутворення — IoT пристрій розраховує
+рекомендовану              ціну   за   формулою    𝑃рек = 𝑃баз × 𝐾попит × 𝐾час × 𝐾день   з
+обмеженням діапазону 70-150% та округленням до 5 грн (див. рис. Б.7).
+     MF-3: Прогнозування попиту — сервер аналізує історичні дані за 12 тижнів
+методом ковзного середнього з коефіцієнтами тренду та сезонності (див. рис. Б.5).
+Генеруються рекомендації «додати рейс» або «скасувати рейс».
+     MF-4: Аналітика рентабельності — щоденний розрахунок прибутковості
+рейсів       з     категоризацією:     збитковий   (<0%),   низькорентабельний    (0-20%),
+нормальний (20-50%), високорентабельний (>50%) (див. рис. Б.4).
+     MF-5: Моніторинг у реальному часі — панель диспетчера відображає активні
+рейси з індикацією завантаженості та сповіщеннями про критичні події.
+
+     3.6.2 Функції адміністрування
+
+     Адміністративна панель надає:
+         –       Управління користувачами (CRUD операції)
+         –       Система ролей RBAC з трьома ролями (dispatcher, admin, tech_admin)
+         –       Налаштування системних параметрів (коефіцієнти ціноутворення, пороги
+                 попиту)
+         –       Експорт/імпорт налаштувань системи у форматі JSON
+         –       Журнал аудиту всіх модифікуючих операцій
+         –       Резервне копіювання бази даних
+                                                                              9
+       3.6.3 Експорт та імпорт налаштувань
+
+       Система підтримує експорт та імпорт системних налаштувань для резервного
+копіювання конфігурації або перенесення між середовищами.
+       Makefile команди для роботи з налаштуваннями:
+
+1   make settings-export    # Експортувати у busoptima_settings.json
+2   make settings-import    # Імпортувати з busoptima_settings.json
+3   make settings-show      # Показати поточні налаштування
+
+
+       GET /api/admin/settings/export — експортує поточні налаштування:
+
+ 1 {
+ 2         "version": "1.0",
+ 3         "exported_at": "2025-12-26T15:30:00Z",
+ 4         "settings": {
+ 5             "fuel_price_per_liter": 52.50,
+ 6             "peak_hours_coefficient": 1.30,
+ 7             "weekend_coefficient": 1.20,
+ 8             "high_demand_threshold": 85,
+ 9             "low_demand_threshold": 30,
+10             "price_min_coefficient": 0.65,
+11             "price_max_coefficient": 1.60,
+12             "seasonal_coefficients": {
+13                 "spring": 1.00, "summer": 1.20,
+14                 "autumn": 1.10, "winter": 0.90
+15             }
+16         }
+17 }
+
+
+       POST /api/admin/settings/import — імпортує налаштування з JSON файлу.
+Система валідує всі параметри перед застосуванням та фіксує зміни в журналі
+аудиту.
+
+       3.6.4 Налаштування IoT клієнта
+
+       IoT клієнт (див. рис. Б.3) підтримує:
+       –    Автоматичне WiFi-підключення з перепідключенням
+       –    JWT-автентифікація з автооновленням токенів
+       –    Автономний режим при відсутності з’єднання (буфер 10,000 подій)
+       –    Скидання налаштувань через кнопку Reset
+       –    Примусова синхронізація через кнопку Sync
+       –    Відображення інформації на LCD-дисплеї
+                                                                                  10
+      3.6.5 Взаємодія IoT клієнта та сервера
+
+      REST API ендпоінти для IoT:
+
+Таблиця 3.2 – API ендпоінти IoT клієнта
+Метод    Ендпоінт                               Опис
+POST     /api/auth/device                       Автентифікація пристрою
+GET      /api/iot/config/{tripId}               Конфігурація рейсу
+POST     /api/iot/events                        Синхронізація подій
+POST     /api/iot/price                         Рекомендація ціни
+
+      Формат синхронізації подій:
+
+ 1 POST /api/iot/events
+ 2 {
+ 3     "trip_id": 1,
+ 4     "events": [{
+ 5         "local_id": 1,
+ 6         "event_type": "entry",
+ 7         "timestamp": "2025-12-26T08:15:00Z",
+ 8         "latitude": 49.9935,
+ 9         "longitude": 36.2304,
+10         "passenger_count_after": 15
+11     }]
+12 }
+
+
+      3.7 Схеми взаємодії компонентів
+
+      Загальна архітектура системи представлена на UML діаграмі прецедентів
+(див. рис. Б.2), яка описує основні сценарії взаємодії акторів (диспетчер,
+адміністратор, IoT-пристрій) з системою BusOptima.
+      Процес    прогнозування       попиту   (див.   рис.   Б.5)   демонструє   обмін
+повідомленнями між компонентами: AnalyticsHandler валідує параметри запиту,
+ForecastService отримує історичні дані через AnalyticsRepository, обчислює ковзне
+середнє та коефіцієнти, формує прогноз з довірчим інтервалом.
+      Синхронізація даних між IoT клієнтом та сервером (див. рис. Б.8) включає
+перевірку з’єднання, вибірку несинхронізованих подій з локального буфера,
+відправку пакетом на сервер та позначення подій як синхронізованих після успішної
+відповіді.
+                                                                            11
+                                 ВИСНОВКИ
+
+
+     В результаті виконання лабораторної роботи розгорнуто програмну систему
+BusOptima з використанням Docker Compose для серверної інфраструктури та
+PlatformIO для IoT клієнта. Налаштовано середовище з трьома контейнерами:
+PostgreSQL 17 для бази даних, Go API сервер та Adminer для адміністрування БД.
+     Перевірено стабільність роботи всіх компонентів: серверна частина коректно
+обробляє HTTP-запити, база даних зберігає та повертає дані, IoT клієнт успішно
+синхронізує події з сервером. Продемонстровано всі функції з Vision & Scope:
+автоматичний підрахунок пасажирів, динамічне ціноутворення, прогнозування
+попиту, аналітику рентабельності, та моніторинг у реальному часі.
+                                                                            12
+                                 ДОДАТОК А
+                                  Відеозапис
+
+      Відеозапис: https://youtu.be/jpcKZgYmTmM
+
+      Хронологічний опис:
+      00:10 — Копіювання файлів бекенду.
+      00:51 — Запуск Docker-контейнерів за допомогою Makefile та Docker
+Compose.
+      01:21 — Аналіз та виправлення помилок доступу до файлів бази даних при
+розгортанні на сервері.
+      02:29 — Успішний запуск системи, застосування міграцій та перевірка
+контейнерів.
+      03:21 — Веб-перевірка доступу до сервера та авторизація адміністратора
+через JWT.
+      04:06 — Огляд функцій: отримання прогнозів попиту та аналіз прибутковості
+рейсів.
+      04:35 — Демонстрація механізму експорту налаштувань через командний
+рядок.
+      06:22 — Редагування конфігураційного файлу та імпорт оновлених даних у
+систему.
+      07:11 — Тестування підключення IoT-клієнта до розгорнутого сервера.
+      08:01 — Синхронізація подій з IoT-пристрою та фінальна перевірка даних на
+сервері.
+                                       13
+           ДОДАТОК Б
+         Графічні матеріали
+
+
+
+
+Рисунок Б.1 – ER-діаграма бази даних
+                                                 14
+
+
+
+
+Рисунок Б.2 – UML діаграма прецедентів системи
+                                                     15
+
+
+
+
+Рисунок Б.3 – UML діаграма прецедентів IoT клієнта
+                                                                  16
+
+
+
+
+Рисунок Б.4 – UML діаграма діяльності розрахунку рентабельності
+                                                                17
+
+
+
+
+Рисунок Б.5 – UML діаграма послідовності прогнозування попиту
+                                                               18
+
+
+
+
+Рисунок Б.6 – UML діаграма діяльності обробки події пасажира
+                                                                      19
+
+
+
+
+Рисунок Б.7 – UML діаграма діяльності динамічного ціноутворення IoT
+                                                            20
+
+
+
+
+Рисунок Б.8 – UML діаграма діяльності синхронізації даних
+                                                                           21
+                                   ДОДАТОК В
+                                  Програмний код
+
+      Повний код проекту: https://github.com/NureOsychenkoIllia/ark-pzpi-23-3-
+osychenko-illia/tree/main/Lab5/ark-pzpi-23-3-osychenko-illia-lab5
+
+      В.1 Точка входу серверної частини (main.go)
+
+ 1   package main
+ 2
+ 3   import (
+ 4     "log"
+ 5     "github.com/gofiber/fiber/v2"
+ 6     "github.com/gofiber/fiber/v2/middleware/cors"
+ 7     "github.com/gofiber/fiber/v2/middleware/logger"
+ 8     "github.com/jmoiron/sqlx"
+ 9     _ "github.com/lib/pq"
+10     "busoptima/internal/config"
+11     "busoptima/internal/handler"
+12     "busoptima/internal/middleware"
+13     "busoptima/internal/repository"
+14     "busoptima/internal/service"
+15   )
+16
+17   func main() {
+18     cfg := config.Load()
+19
+20     db, err := sqlx.Connect("postgres", cfg.DatabaseURL)
+21     if err != nil {
+22       log.Fatal("Failed to connect to database:", err)
+23     }
+24     defer db.Close()
+25
+26     db.SetMaxOpenConns(25)
+27     db.SetMaxIdleConns(5)
+28
+29     repos := repository.NewRepositories(db)
+30     services := &service.Services{
+31       Auth:       service.NewAuthService(repos.User, repos.Device,
+     cfg.JWTSecret),
+32       Route:      service.NewRouteService(repos.Route, repos.Audit),
+33       Bus:        service.NewBusService(repos.Bus, repos.Audit),
+34       Trip:       service.NewTripService(repos.Trip, repos.Event,
+     repos.Analytics, repos.Audit),
+35       IoT:        service.NewIoTService(repos.Device, repos.Event,
+     repos.Trip, repos.PriceRecommendation),
+36       Analytics: service.NewAnalyticsService(repos.Analytics,
+     repos.Trip),
+37       Forecast: service.NewForecastService(repos.Analytics,
+     repos.Route),
+38       Settings: service.NewSettingsService(repos.Settings),
+                                                                              22
+
+39       Backup:    service.NewBackupService("/app/backups",
+     cfg.DatabaseURL),
+40       Audit:     service.NewAuditService(repos.Audit),
+41     }
+42     services.Pricing = service.NewPricingService(services.Settings)
+43
+44     app := fiber.New(fiber.Config{ErrorHandler:
+     handler.CustomErrorHandler})
+45     app.Use(logger.New())
+46     app.Use(cors.New(cors.Config{
+47       AllowOrigins: "*",
+48       AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
+49       AllowHeaders: "Origin,Content-Type,Accept,Authorization",
+50     }))
+51
+52       setupRoutes(app, services, repos, cfg)
+53
+54       port := cfg.Port
+55       if port == "" { port = "8080" }
+56       log.Printf("Server starting on port %s", port)
+57       log.Fatal(app.Listen(":" + port))
+58   }
+
+
+         В.2 Сервіс IoT (iot_service.go)
+
+ 1   package service
+ 2
+ 3   import (
+ 4     "busoptima/internal/model"
+ 5     "busoptima/internal/repository"
+ 6     "context"
+ 7     "fmt"
+ 8     "time"
+ 9   )
+10
+11   type IoTService interface {
+12     SyncEvents(ctx context.Context, tripID int64, events
+     []model.PassengerEvent) (*SyncEventsResponse, error)
+13     SendPriceRecommendation(ctx context.Context, recommendation
+     *model.PriceRecommendation) error
+14     GetTripConfig(ctx context.Context, tripID int64) (*TripConfig, error)
+15   }
+16
+17   type SyncEventsResponse      struct   {
+18     SyncedCount                int      `json:"synced_count"`
+19     LastSyncedLocalID          int      `json:"last_synced_local_id"`
+20     TripCurrentPassengers      int      `json:"trip_current_passengers"`
+21     ServerTime                 string   `json:"server_time"`
+22   }
+23
+24   type iotService struct {
+25     deviceRepo      repository.DeviceRepository
+26     eventRepo       repository.PassengerEventRepository
+27     tripRepo        repository.TripRepository
+28     priceRecommRepo repository.PriceRecommendationRepository
+                                                                              23
+
+29   }
+30
+31   func (s *iotService) SyncEvents(ctx context.Context, tripID int64,
+     events []model.PassengerEvent) (*SyncEventsResponse, error) {
+32     if len(events) == 0 {
+33       return &SyncEventsResponse{
+34         SyncedCount: 0, ServerTime: time.Now().Format(time.RFC3339),
+35       }, nil
+36     }
+37
+38       for i := range events {
+39         events[i].TripID = tripID
+40       }
+41
+42       err := s.eventRepo.BatchCreate(ctx, events)
+43       if err != nil {
+44         return nil, fmt.Errorf("failed to sync events: %w", err)
+45       }
+46
+47       trip, _ := s.tripRepo.GetByID(ctx, tripID)
+48       lastLocalID := 0
+49       if len(events) > 0 && events[len(events)-1].DeviceLocalID != nil {
+50         lastLocalID = *events[len(events)-1].DeviceLocalID
+51       }
+52
+53       return &SyncEventsResponse{
+54         SyncedCount:           len(events),
+55         LastSyncedLocalID:     lastLocalID,
+56         TripCurrentPassengers: trip.CurrentPassengers,
+57         ServerTime:            time.Now().Format(time.RFC3339),
+58       }, nil
+59   }
+60
+61   func (s *iotService) GetTripConfig(ctx context.Context, tripID int64)
+     (*TripConfig, error) {
+62     trip, err := s.tripRepo.GetByID(ctx, tripID)
+63     if err != nil {
+64       return nil, fmt.Errorf("failed to get trip: %w", err)
+65     }
+66
+67       config := &TripConfig{TripID: tripID, RouteID: trip.RouteID}
+68       if trip.Route != nil { config.BasePrice = trip.Route.BasePrice }
+69       if trip.Bus != nil { config.BusCapacity = trip.Bus.Capacity }
+70       return config, nil
+71   }
+
+
+         В.3 Головний модуль IoT клієнта (main.cpp)
+
+ 1   #include   <Arduino.h>
+ 2   #include   <WiFi.h>
+ 3   #include   <time.h>
+ 4   #include   "config.h"
+ 5   #include   "models.h"
+ 6   #include   "event_buffer.h"
+ 7   #include   "pricing_engine.h"
+                                                                             24
+
+ 8   #include "api_client.h"
+ 9   #include "display_manager.h"
+10
+11   EventBuffer eventBuffer;
+12   PricingEngine pricingEngine;
+13   ApiClient apiClient;
+14   DisplayManager display;
+15
+16   DeviceState deviceState;
+17   TripConfig tripConfig;
+18
+19   volatile bool entryDetected = false;
+20   volatile bool exitDetected = false;
+21
+22   void IRAM_ATTR onEntryDetected() {
+23       unsigned long now = millis();
+24       static unsigned long lastTrigger = 0;
+25       if (now - lastTrigger > SENSOR_DEBOUNCE_MS) {
+26           lastTrigger = now;
+27           entryDetected = true;
+28       }
+29   }
+30
+31   void IRAM_ATTR onExitDetected() {
+32       unsigned long now = millis();
+33       static unsigned long lastTrigger = 0;
+34       if (now - lastTrigger > SENSOR_DEBOUNCE_MS) {
+35           lastTrigger = now;
+36           exitDetected = true;
+37       }
+38   }
+39
+40   void handlePassengerEntry() {
+41       deviceState.currentPassengers++;
+42       eventBuffer.addEvent(EVENT_ENTRY, deviceState.currentPassengers);
+43       display.showPassengerEvent(EVENT_ENTRY,
+     deviceState.currentPassengers);
+44   }
+45
+46   void handlePassengerExit() {
+47       if (deviceState.currentPassengers > 0)
+     deviceState.currentPassengers--;
+48       eventBuffer.addEvent(EVENT_EXIT, deviceState.currentPassengers);
+49       display.showPassengerEvent(EVENT_EXIT,
+     deviceState.currentPassengers);
+50   }
+51
+52   void setup() {
+53       Serial.begin(115200);
+54       pinMode(PIN_PIR_ENTRY, INPUT);
+55       pinMode(PIN_PIR_EXIT, INPUT);
+56       attachInterrupt(digitalPinToInterrupt(PIN_PIR_ENTRY),
+     onEntryDetected, RISING);
+57       attachInterrupt(digitalPinToInterrupt(PIN_PIR_EXIT),
+     onExitDetected, RISING);
+58
+                                                                             25
+
+59         display.begin();
+60         eventBuffer.begin();
+61
+62         WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+63         while (WiFi.status() != WL_CONNECTED) {
+64             digitalWrite(PIN_LED_WIFI, !digitalRead(PIN_LED_WIFI));
+65             delay(500);
+66         }
+67         digitalWrite(PIN_LED_WIFI, HIGH);
+68         configTime(2 * 3600, 0, "pool.ntp.org");
+69   }
+70
+71   void loop() {
+72       if (entryDetected) { entryDetected = false;
+     handlePassengerEntry(); }
+73       if (exitDetected) { exitDetected = false; handlePassengerExit(); }
+74       delay(10);
+75   }
+
+
+         В.4 Рушій динамічного ціноутворення IoT (pricing_engine.h)
+
+ 1   #ifndef PRICING_ENGINE_H
+ 2   #define PRICING_ENGINE_H
+ 3
+ 4   #include "config.h"
+ 5   #include "models.h"
+ 6
+ 7   class PricingEngine {
+ 8   private:
+ 9       float calculateDemandCoefficient(float occupancyRate) {
+10            if (occupancyRate < 30.0) return DEMAND_COEFF_LOW;
+11            if (occupancyRate < 60.0) return DEMAND_COEFF_MEDIUM;
+12            if (occupancyRate < 85.0) return DEMAND_COEFF_HIGH;
+13            return DEMAND_COEFF_VERY_HIGH;
+14       }
+15
+16         float calculateTimeCoefficient(int hour) {
+17             if ((hour >= 7 && hour <= 9) || (hour >= 17 && hour <= 19))
+18                 return TIME_COEFF_PEAK;
+19             if (hour >= 23 || hour <= 6)
+20                 return TIME_COEFF_NIGHT;
+21             return TIME_COEFF_NORMAL;
+22         }
+23
+24       float calculateDayCoefficient(int dayOfWeek) {
+25           return (dayOfWeek == 0 || dayOfWeek == 6) ? DAY_COEFF_WEEKEND :
+     DAY_COEFF_WEEKDAY;
+26       }
+27
+28   public:
+29       PriceRecommendation calculatePrice(float basePrice, int
+     currentPassengers,
+30                                           int capacity, struct tm*
+     timeinfo) {
+31           PriceRecommendation rec;
+                                                                             26
+
+32           rec.basePrice = basePrice;
+33           rec.occupancyRate = (capacity > 0) ? (float)currentPassengers /
+     capacity * 100.0 : 0.0;
+34
+35           rec.demandCoeff =
+     calculateDemandCoefficient(rec.occupancyRate);
+36           rec.timeCoeff = calculateTimeCoefficient(timeinfo ? timeinfo-
+     >tm_hour : 12);
+37           rec.dayCoeff = calculateDayCoefficient(timeinfo ? timeinfo-
+     >tm_wday : 1);
+38
+39           float rawPrice = basePrice * rec.demandCoeff * rec.timeCoeff *
+     rec.dayCoeff;
+40           rawPrice = constrain(rawPrice, basePrice * PRICE_MIN_COEFF,
+     basePrice * PRICE_MAX_COEFF);
+41           rec.recommendedPrice = round(rawPrice / PRICE_ROUND_STEP) *
+     PRICE_ROUND_STEP;
+42
+43            return rec;
+44        }
+45   };
+46
+47   #endif
+
+
+      В.5 Експорт/імпорт налаштувань (settings_service.go)
+
+ 1 // ExportSettings експортує поточні налаштування у форматі JSON
+ 2 func (s *settingsService) ExportSettings(ctx context.Context)
+   (*SettingsExport, error) {
+ 3   settings, err := s.GetSettings(ctx)
+ 4   if err != nil {
+ 5      return nil, fmt.Errorf("failed to get settings for export: %w",
+   err)
+ 6   }
+ 7
+ 8   return &SettingsExport{
+ 9      Version:    "1.0",
+10      ExportedAt: time.Now().Format(time.RFC3339),
+11      Settings:   settings,
+12   }, nil
+13 }
+14
+15 // ImportSettings імпортує налаштування з експортованого файлу
+16 func (s *settingsService) ImportSettings(ctx context.Context, export
+   *SettingsExport, userID int64) error {
+17   if export == nil || export.Settings == nil {
+18      return fmt.Errorf("invalid export data: settings are empty")
+19   }
+20
+21   if export.Version != "1.0" {
+22      return fmt.Errorf("unsupported export version: %s", export.Version)
+23   }
+24
+25   if err := s.ValidateSettings(export.Settings); err != nil {
+26      return fmt.Errorf("imported settings validation failed: %w", err)
+                                                                 27
+
+27       }
+28
+29       return s.UpdateSettings(ctx, export.Settings, userID)
+30   }
+

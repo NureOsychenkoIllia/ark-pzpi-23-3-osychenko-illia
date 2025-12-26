@@ -1,0 +1,125 @@
+{
+  "version": 1,
+  "author": "Osychenko Illia",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "wokwi-esp32-devkit-v1",
+      "id": "esp",
+      "top": 195.81,
+      "left": 29.87,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-pir-motion-sensor",
+      "id": "pir_entry",
+      "top": -12.91,
+      "left": -201.51,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-pir-motion-sensor",
+      "id": "pir_exit",
+      "top": -12.91,
+      "left": -101.51,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led_status",
+      "top": -156.02,
+      "left": -90.35,
+      "attrs": { "color": "green" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led_wifi",
+      "top": -152.07,
+      "left": -31.4,
+      "attrs": { "color": "blue" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led_error",
+      "top": -157.78,
+      "left": 92.85,
+      "attrs": { "color": "red" }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btn_reset",
+      "top": 150,
+      "left": 150,
+      "attrs": { "color": "red" }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btn_sync",
+      "top": 150,
+      "left": 220,
+      "attrs": { "color": "blue" }
+    },
+    {
+      "type": "wokwi-lcd1602",
+      "id": "lcd",
+      "top": 200,
+      "left": 400,
+      "attrs": { "pins": "i2c" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r1",
+      "top": -55.17,
+      "left": -104.5,
+      "rotate": 90,
+      "attrs": { "value": "220" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r2",
+      "top": -44.05,
+      "left": -45.4,
+      "rotate": 90,
+      "attrs": { "value": "220" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r3",
+      "top": -44.05,
+      "left": 80.6,
+      "rotate": 90,
+      "attrs": { "value": "220" }
+    }
+  ],
+  "connections": [
+    ["esp:TX", "$serialMonitor:RX", "", []],
+    ["esp:RX", "$serialMonitor:TX", "", []],
+    ["pir_entry:OUT", "esp:D14", "green", ["v39.84", "h32.77"]],
+    ["pir_entry:GND", "esp:GND", "black", ["v70.64", "h138.78", "v-12.98"]],
+    ["pir_entry:VCC", "esp:3V3", "red", ["v5.2", "h295.63", "v53.54", "h43.85", "v215.54", "h-46.87"]],
+    ["pir_exit:OUT", "esp:D12", "green", ["v39.84", "h132.77"]],
+    ["pir_exit:GND", "esp:GND", "black", ["v70.64", "h238.78", "v-12.98"]],
+    ["pir_exit:VCC", "esp:3V3", "red", ["v5.2", "h395.63", "v53.54", "h43.85", "v215.54", "h-46.87"]],
+    ["led_status:A", "esp:D25", "green", ["v167.18", "h-0.2", "v153.76", "h21.13", "v101.41"]],
+    ["led_status:C", "r1:1", "green", ["v0"]],
+    ["r1:2", "esp:GND", "green", ["h-1.04", "v264.23"]],
+    ["led_wifi:A", "esp:D26", "blue", ["v167.18", "h-0.2", "v153.76", "h21.13", "v101.41"]],
+    ["led_wifi:C", "r2:1", "blue", ["v0"]],
+    ["r2:2", "esp:GND", "blue", ["h-1.04", "v264.23"]],
+    ["led_error:A", "esp:D27", "red", ["v167.18", "h-0.2", "v153.76", "h21.13", "v101.41"]],
+    ["led_error:C", "r3:1", "red", ["v0"]],
+    ["r3:2", "esp:GND", "red", ["h-1.04", "v264.23"]],
+    ["btn_reset:1.l", "esp:D4", "orange", ["v30"]],
+    ["btn_reset:2.l", "esp:GND", "black", ["v40", "h20"]],
+    ["btn_sync:1.l", "esp:D5", "purple", ["v30"]],
+    ["btn_sync:2.l", "esp:GND", "black", ["v40", "h10"]],
+    ["lcd:GND", "esp:GND", "black", ["v10"]],
+    ["lcd:VCC", "esp:3V3", "red", ["v20"]],
+    ["lcd:SDA", "esp:D21", "green", ["v30"]],
+    ["lcd:SCL", "esp:D22", "yellow", ["v40"]]
+  ],
+  "serialMonitor": {
+    "display": "terminal",
+    "newline": "lf"
+  }
+}
